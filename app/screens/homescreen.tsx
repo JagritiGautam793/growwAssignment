@@ -1,11 +1,12 @@
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Dimensions,
   FlatList,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -24,13 +25,41 @@ interface SectionData {
   type: "gainer" | "loser";
 }
 
+interface SearchResult {
+  symbol: string;
+  name: string;
+  type: string;
+  region: string;
+  marketOpen: string;
+  marketClose: string;
+  timezone: string;
+  currency: string;
+  matchScore: number;
+}
+
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 30) / 2; // 30 for padding and gap
+
+// Debounce utility function
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 const HomeScreen = () => {
   const [gainers, setGainers] = useState<StockData[]>([]);
   const [losers, setLosers] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -50,6 +79,41 @@ const HomeScreen = () => {
     fetchData();
   }, []);
 
+  // Debounced search function
+  const debouncedSearch = useCallback(
+    debounce(async (query: string) => {
+      if (query.trim().length < 2) {
+        setSearchResults([]);
+        setShowSearchResults(false);
+        return;
+      }
+
+      try {
+        setSearchLoading(true);
+        const response = await fetch(
+          `/search?keywords=${encodeURIComponent(query)}`
+        );
+        const data = await response.json();
+
+        if (data.results) {
+          setSearchResults(data.results);
+          setShowSearchResults(true);
+        }
+      } catch (error) {
+        console.error("Error searching stocks:", error);
+        setSearchResults([]);
+        setShowSearchResults(false);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 500),
+    []
+  );
+
+  useEffect(() => {
+    debouncedSearch(searchQuery);
+  }, [searchQuery, debouncedSearch]);
+
   const sections: SectionData[] = [
     { title: "Top Gainers", data: gainers, type: "gainer" },
     { title: "Top Losers", data: losers, type: "loser" },
@@ -57,6 +121,24 @@ const HomeScreen = () => {
 
   const handleCardPress = (symbol: string) => {
     router.push(`/screens/detailscreen?symbol=${symbol}`);
+  };
+
+  const handleSearchResultPress = (symbol: string) => {
+    setSearchQuery("");
+    setShowSearchResults(false);
+    setSearchResults([]);
+    router.push(`/screens/detailscreen?symbol=${symbol}`);
+  };
+
+  const handleSearchChange = (text: string) => {
+    setSearchQuery(text);
+  };
+
+  const handleSearchBlur = () => {
+    // Small delay to allow for search result selection
+    setTimeout(() => {
+      setShowSearchResults(false);
+    }, 150);
   };
 
   const renderStockCard = ({
@@ -95,6 +177,60 @@ const HomeScreen = () => {
     );
   };
 
+  const renderSearchResult = ({ item }: { item: SearchResult }) => (
+    <TouchableOpacity
+      style={styles.searchResultItem}
+      onPress={() => handleSearchResultPress(item.symbol)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.searchResultContent}>
+        <Text style={styles.searchResultSymbol}>{item.symbol}</Text>
+        <Text style={styles.searchResultName} numberOfLines={1}>
+          {item.name}
+        </Text>
+        <Text style={styles.searchResultDetails}>
+          {item.type} • {item.region} • {item.currency}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderSearchBar = () => (
+    <View style={styles.searchContainer}>
+      <TextInput
+        style={styles.searchInput}
+        placeholder="Search stocks..."
+        value={searchQuery}
+        onChangeText={handleSearchChange}
+        onBlur={handleSearchBlur}
+        placeholderTextColor="#999"
+      />
+      {searchLoading && (
+        <ActivityIndicator
+          size="small"
+          color="#007AFF"
+          style={styles.searchLoading}
+        />
+      )}
+    </View>
+  );
+
+  const renderSearchResults = () => {
+    if (!showSearchResults || searchResults.length === 0) return null;
+
+    return (
+      <View style={styles.searchResultsContainer}>
+        <FlatList
+          data={searchResults}
+          renderItem={renderSearchResult}
+          keyExtractor={(item) => item.symbol}
+          showsVerticalScrollIndicator={false}
+          style={styles.searchResultsList}
+        />
+      </View>
+    );
+  };
+
   const renderSection = ({ item: section }: { item: SectionData }) => (
     <View style={styles.section}>
       <Text style={styles.sectionHeader}>{section.title}</Text>
@@ -120,6 +256,8 @@ const HomeScreen = () => {
 
   return (
     <View style={styles.container}>
+      {renderSearchBar()}
+      {renderSearchResults()}
       <FlatList
         data={sections}
         renderItem={renderSection}
@@ -204,6 +342,59 @@ const styles = StyleSheet.create({
   },
   volume: {
     fontSize: 11,
+    color: "#888",
+  },
+  searchContainer: {
+    backgroundColor: "#fff",
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  searchInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    fontSize: 16,
+    backgroundColor: "#f8f8f8",
+  },
+  searchLoading: {
+    marginLeft: 10,
+  },
+  searchResultsContainer: {
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    maxHeight: 200,
+  },
+  searchResultsList: {
+    maxHeight: 200,
+  },
+  searchResultItem: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  searchResultContent: {
+    flex: 1,
+  },
+  searchResultSymbol: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  searchResultName: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 2,
+  },
+  searchResultDetails: {
+    fontSize: 12,
     color: "#888",
   },
 });
