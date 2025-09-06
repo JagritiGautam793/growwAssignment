@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  ScrollView,
+  Dimensions,
+  FlatList,
   StyleSheet,
   Text,
   View,
@@ -14,6 +15,15 @@ interface StockData {
   change_percentage: string;
   volume: string;
 }
+
+interface SectionData {
+  title: string;
+  data: StockData[];
+  type: "gainer" | "loser";
+}
+
+const { width } = Dimensions.get("window");
+const CARD_WIDTH = (width - 30) / 2; // 30 for padding and gap
 
 const HomeScreen = () => {
   const [gainers, setGainers] = useState<StockData[]>([]);
@@ -37,19 +47,55 @@ const HomeScreen = () => {
     fetchData();
   }, []);
 
-  const renderStockCard = (item: StockData, type: "gainer" | "loser") => (
-    <View
-      key={item.ticker}
-      style={[
-        styles.card,
-        type === "gainer" ? styles.gainerCard : styles.loserCard,
-      ]}
-    >
-      <Text style={styles.ticker}>{item.ticker}</Text>
-      <Text>Price: ${item.price}</Text>
-      <Text>Change: {item.change_amount}</Text>
-      <Text>Change %: {item.change_percentage}</Text>
-      <Text>Volume: {item.volume}</Text>
+  const sections: SectionData[] = [
+    { title: "Top Gainers", data: gainers, type: "gainer" },
+    { title: "Top Losers", data: losers, type: "loser" },
+  ];
+
+  const renderStockCard = ({
+    item,
+    type,
+  }: {
+    item: StockData;
+    type: "gainer" | "loser";
+  }) => {
+    const isPositive = parseFloat(item.change_percentage) >= 0;
+    const changeColor = type === "gainer" ? "#4CAF50" : "#F44336";
+
+    return (
+      <View style={[styles.card, { width: CARD_WIDTH }]}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.ticker}>{item.ticker}</Text>
+          <Text style={[styles.changePercentage, { color: changeColor }]}>
+            {isPositive ? "+" : ""}
+            {item.change_percentage}%
+          </Text>
+        </View>
+
+        <Text style={styles.price}>${item.price}</Text>
+
+        <View style={styles.cardDetails}>
+          <Text style={styles.changeAmount}>
+            {isPositive ? "+" : ""}${item.change_amount}
+          </Text>
+          <Text style={styles.volume}>Vol: {item.volume}</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderSection = ({ item: section }: { item: SectionData }) => (
+    <View style={styles.section}>
+      <Text style={styles.sectionHeader}>{section.title}</Text>
+      <FlatList
+        data={section.data}
+        renderItem={({ item }) => renderStockCard({ item, type: section.type })}
+        keyExtractor={(item) => item.ticker}
+        numColumns={2}
+        columnWrapperStyle={styles.row}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={false}
+      />
     </View>
   );
 
@@ -62,62 +108,92 @@ const HomeScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.header}>Top Gainers</Text>
-      {gainers.length > 0 ? (
-        gainers.map((stock) => renderStockCard(stock, "gainer"))
-      ) : (
-        <Text>No gainers data available.</Text>
-      )}
-
-      <Text style={styles.header}>Top Losers</Text>
-      {losers.length > 0 ? (
-        losers.map((stock) => renderStockCard(stock, "loser"))
-      ) : (
-        <Text>No losers data available.</Text>
-      )}
-    </ScrollView>
+    <View style={styles.container}>
+      <FlatList
+        data={sections}
+        renderItem={renderSection}
+        keyExtractor={(item) => item.title}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.listContainer}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 10,
-    backgroundColor: "#f0f0f0",
+    backgroundColor: "#f5f5f5",
   },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
-  header: {
-    fontSize: 24,
+  listContainer: {
+    padding: 15,
+  },
+  section: {
+    marginBottom: 25,
+  },
+  sectionHeader: {
+    fontSize: 22,
     fontWeight: "bold",
-    marginVertical: 10,
+    marginBottom: 15,
+    color: "#333",
+    textAlign: "center",
+  },
+  row: {
+    justifyContent: "space-between",
+    marginBottom: 10,
   },
   card: {
     backgroundColor: "#fff",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
+    padding: 12,
+    borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 5,
+    shadowRadius: 4,
     elevation: 3,
-  },
-  gainerCard: {
-    borderColor: "green",
     borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
-  loserCard: {
-    borderColor: "red",
-    borderWidth: 1,
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
   ticker: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    flex: 1,
+  },
+  changePercentage: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  price: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#333",
+    marginBottom: 8,
+  },
+  cardDetails: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  changeAmount: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
+  },
+  volume: {
+    fontSize: 11,
+    color: "#888",
   },
 });
 
