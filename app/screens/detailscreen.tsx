@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { LineChart } from "react-native-chart-kit";
 
 interface CompanyData {
   symbol: string;
@@ -56,6 +57,21 @@ interface InfoItem {
   type?: "currency" | "percentage" | "number" | "text";
 }
 
+interface TimeSeriesData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+interface TimeSeriesResponse {
+  symbol: string;
+  timeframe: string;
+  data: TimeSeriesData[];
+}
+
 const { width } = Dimensions.get("window");
 
 const DetailScreen = () => {
@@ -64,12 +80,23 @@ const DetailScreen = () => {
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData[]>([]);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<string>("1D");
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
 
   useEffect(() => {
     if (symbol) {
       fetchCompanyData();
+      fetchTimeSeriesData();
     }
   }, [symbol]);
+
+  useEffect(() => {
+    if (symbol) {
+      fetchTimeSeriesData();
+    }
+  }, [selectedTimeframe]);
 
   const fetchCompanyData = async () => {
     try {
@@ -90,6 +117,30 @@ const DetailScreen = () => {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTimeSeriesData = async () => {
+    try {
+      setChartLoading(true);
+      setChartError(null);
+      const response = await fetch(
+        `/timeseries?symbol=${symbol}&timeframe=${selectedTimeframe}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch time series data: ${response.status}`);
+      }
+
+      const data: TimeSeriesResponse = await response.json();
+      setTimeSeriesData(data.data);
+    } catch (err) {
+      console.error("Error fetching time series data:", err);
+      setChartError(
+        err instanceof Error ? err.message : "Failed to fetch time series data"
+      );
+    } finally {
+      setChartLoading(false);
     }
   };
 
@@ -143,6 +194,122 @@ const DetailScreen = () => {
       />
     </View>
   );
+
+  const timeframes = ["1D", "1W", "1M", "3M", "6M", "1Y"];
+
+  const renderTimeframeButtons = () => (
+    <View style={styles.timeframeContainer}>
+      <Text style={styles.chartTitle}>Price Chart</Text>
+      <View style={styles.timeframeButtons}>
+        {timeframes.map((timeframe) => (
+          <TouchableOpacity
+            key={timeframe}
+            style={[
+              styles.timeframeButton,
+              selectedTimeframe === timeframe && styles.timeframeButtonActive,
+            ]}
+            onPress={() => setSelectedTimeframe(timeframe)}
+          >
+            <Text
+              style={[
+                styles.timeframeButtonText,
+                selectedTimeframe === timeframe &&
+                  styles.timeframeButtonTextActive,
+              ]}
+            >
+              {timeframe}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderChart = () => {
+    if (chartLoading) {
+      return (
+        <View style={styles.chartContainer}>
+          <ActivityIndicator size="small" color="#007AFF" />
+          <Text style={styles.chartLoadingText}>Loading chart data...</Text>
+        </View>
+      );
+    }
+
+    if (chartError) {
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartErrorText}>{chartError}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchTimeSeriesData}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (timeSeriesData.length === 0) {
+      return (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartErrorText}>No chart data available</Text>
+        </View>
+      );
+    }
+
+    // Prepare data for the chart
+    const chartData = {
+      labels: timeSeriesData
+        .slice(-10) // Show last 10 data points for better readability
+        .map((item) => {
+          const date = new Date(item.time);
+          return selectedTimeframe === "1D"
+            ? date.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : date.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              });
+        }),
+      datasets: [
+        {
+          data: timeSeriesData.slice(-10).map((item) => item.close),
+          color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+          strokeWidth: 2,
+        },
+      ],
+    };
+
+    return (
+      <View style={styles.chartContainer}>
+        <LineChart
+          data={chartData}
+          width={width - 30}
+          height={220}
+          chartConfig={{
+            backgroundColor: "#ffffff",
+            backgroundGradientFrom: "#ffffff",
+            backgroundGradientTo: "#ffffff",
+            decimalPlaces: 2,
+            color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            style: {
+              borderRadius: 16,
+            },
+            propsForDots: {
+              r: "4",
+              strokeWidth: "2",
+              stroke: "#007AFF",
+            },
+          }}
+          bezier
+          style={styles.chart}
+        />
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -274,6 +441,9 @@ const DetailScreen = () => {
         </TouchableOpacity>
         <Text style={styles.symbol}>{companyData.symbol}</Text>
       </View>
+
+      {renderTimeframeButtons()}
+      {renderChart()}
 
       {companyData.description && (
         <View style={styles.descriptionSection}>
@@ -491,6 +661,62 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  timeframeContainer: {
+    backgroundColor: "#fff",
+    padding: 15,
+    marginBottom: 10,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 15,
+  },
+  timeframeButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  timeframeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+    minWidth: 40,
+    alignItems: "center",
+  },
+  timeframeButtonActive: {
+    backgroundColor: "#007AFF",
+  },
+  timeframeButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+  },
+  timeframeButtonTextActive: {
+    color: "#fff",
+  },
+  chartContainer: {
+    backgroundColor: "#fff",
+    padding: 15,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+  chartLoadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#666",
+  },
+  chartErrorText: {
+    fontSize: 14,
+    color: "#F44336",
+    textAlign: "center",
+    marginBottom: 10,
   },
 });
 
