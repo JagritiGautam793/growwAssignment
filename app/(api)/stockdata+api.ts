@@ -5,7 +5,6 @@ export async function GET(request: Request) {
     const response = await fetch(API_URL);
 
     if (!response.ok) {
-      // Log the response text to see what the API is returning
       const errorText = await response.text();
       console.error("API request failed:", errorText);
       return Response.json(
