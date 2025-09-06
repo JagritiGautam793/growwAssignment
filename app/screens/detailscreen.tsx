@@ -4,13 +4,17 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
+import { initDatabase } from "../db/client";
+import { watchlistService } from "../service/watchlist";
 
 interface CompanyData {
   symbol: string;
@@ -72,6 +76,12 @@ interface TimeSeriesResponse {
   data: TimeSeriesData[];
 }
 
+interface Watchlist {
+  id: number;
+  name: string;
+  createdAt: string | null;
+}
+
 const { width } = Dimensions.get("window");
 
 const DetailScreen = () => {
@@ -84,11 +94,18 @@ const DetailScreen = () => {
   const [selectedTimeframe, setSelectedTimeframe] = useState<string>("1D");
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
+  const [newWatchlistName, setNewWatchlistName] = useState("");
+  const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     if (symbol) {
       fetchCompanyData();
       fetchTimeSeriesData();
+      initializeDatabase();
     }
   }, [symbol]);
 
@@ -141,6 +158,59 @@ const DetailScreen = () => {
       );
     } finally {
       setChartLoading(false);
+    }
+  };
+
+  const initializeDatabase = async () => {
+    try {
+      await initDatabase();
+      await loadWatchlists();
+    } catch (error) {
+      console.error("Error initializing database:", error);
+    }
+  };
+
+  const loadWatchlists = async () => {
+    try {
+      const watchlistData = await watchlistService.getAllWatchlistItems();
+      setWatchlists(watchlistData);
+    } catch (error) {
+      console.error("Error loading watchlists:", error);
+    }
+  };
+
+  const handleBookmarkPress = () => {
+    setShowWatchlistModal(true);
+  };
+
+  const handleCreateWatchlist = async () => {
+    if (newWatchlistName.trim()) {
+      try {
+        const newWatchlist = await watchlistService.createWatchlistItem(
+          newWatchlistName.trim()
+        );
+        setWatchlists([...watchlists, newWatchlist]);
+        setNewWatchlistName("");
+        setSelectedWatchlistId(newWatchlist.id);
+      } catch (error) {
+        console.error("Error creating watchlist:", error);
+      }
+    }
+  };
+
+  const handleAddToWatchlist = async (watchlistId: number) => {
+    if (!companyData) return;
+
+    try {
+      await watchlistService.addCompanyToWatchlist({
+        symbol: companyData.symbol,
+        name: companyData.name,
+        watchlistId: watchlistId,
+      });
+      setShowWatchlistModal(false);
+      setSelectedWatchlistId(null);
+    } catch (error) {
+      console.error("Error adding company to watchlist:", error);
     }
   };
 
@@ -440,6 +510,12 @@ const DetailScreen = () => {
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.symbol}>{companyData.symbol}</Text>
+        <TouchableOpacity
+          style={styles.bookmarkButton}
+          onPress={handleBookmarkPress}
+        >
+          <Text style={styles.bookmarkButtonText}>🔖</Text>
+        </TouchableOpacity>
       </View>
 
       {renderTimeframeButtons()}
@@ -500,6 +576,85 @@ const DetailScreen = () => {
           </View>
         </View>
       </View>
+
+      {/* Watchlist Modal */}
+      <Modal
+        visible={showWatchlistModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowWatchlistModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Add to Watchlist</Text>
+
+            {/* Create new watchlist */}
+            <View style={styles.createWatchlistContainer}>
+              <TextInput
+                style={styles.watchlistInput}
+                placeholder="Create new watchlist..."
+                value={newWatchlistName}
+                onChangeText={setNewWatchlistName}
+                placeholderTextColor="#999"
+              />
+              <TouchableOpacity
+                style={styles.addButton}
+                onPress={handleCreateWatchlist}
+              >
+                <Text style={styles.addButtonText}>Add</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Existing watchlists */}
+            <Text style={styles.watchlistSectionTitle}>
+              Existing Watchlists
+            </Text>
+            <FlatList
+              data={watchlists}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.watchlistItem,
+                    selectedWatchlistId === item.id &&
+                      styles.selectedWatchlistItem,
+                  ]}
+                  onPress={() => setSelectedWatchlistId(item.id)}
+                >
+                  <Text style={styles.watchlistItemText}>{item.name}</Text>
+                  {selectedWatchlistId === item.id && (
+                    <Text style={styles.checkmark}>✓</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              keyExtractor={(item) => item.id.toString()}
+              style={styles.watchlistList}
+            />
+
+            {/* Action buttons */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowWatchlistModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  !selectedWatchlistId && styles.disabledButton,
+                ]}
+                onPress={() =>
+                  selectedWatchlistId &&
+                  handleAddToWatchlist(selectedWatchlistId)
+                }
+                disabled={!selectedWatchlistId}
+              >
+                <Text style={styles.confirmButtonText}>Add to Watchlist</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -717,6 +872,121 @@ const styles = StyleSheet.create({
     color: "#F44336",
     textAlign: "center",
     marginBottom: 10,
+  },
+  bookmarkButton: {
+    padding: 8,
+    marginLeft: 10,
+  },
+  bookmarkButtonText: {
+    fontSize: 24,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: "80%",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  createWatchlistContainer: {
+    flexDirection: "row",
+    marginBottom: 20,
+    alignItems: "center",
+  },
+  watchlistInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    backgroundColor: "#f8f8f8",
+    marginRight: 10,
+  },
+  addButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  watchlistSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 10,
+  },
+  watchlistList: {
+    maxHeight: 200,
+    marginBottom: 20,
+  },
+  watchlistItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  selectedWatchlistItem: {
+    backgroundColor: "#e3f2fd",
+  },
+  watchlistItemText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  checkmark: {
+    fontSize: 18,
+    color: "#007AFF",
+    fontWeight: "bold",
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#f0f0f0",
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#666",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: "#007AFF",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  disabledButton: {
+    backgroundColor: "#ccc",
   },
 });
 
