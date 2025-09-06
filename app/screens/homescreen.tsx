@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -5,6 +6,7 @@ import {
   FlatList,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -29,6 +31,7 @@ const HomeScreen = () => {
   const [gainers, setGainers] = useState<StockData[]>([]);
   const [losers, setLosers] = useState<StockData[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -52,6 +55,10 @@ const HomeScreen = () => {
     { title: "Top Losers", data: losers, type: "loser" },
   ];
 
+  const handleCardPress = (symbol: string) => {
+    router.push(`/screens/detailscreen?symbol=${symbol}`);
+  };
+
   const renderStockCard = ({
     item,
     type,
@@ -63,7 +70,11 @@ const HomeScreen = () => {
     const changeColor = type === "gainer" ? "#4CAF50" : "#F44336";
 
     return (
-      <View style={[styles.card, { width: CARD_WIDTH }]}>
+      <TouchableOpacity
+        style={[styles.card, { width: CARD_WIDTH }]}
+        onPress={() => handleCardPress(item.ticker)}
+        activeOpacity={0.7}
+      >
         <View style={styles.cardHeader}>
           <Text style={styles.ticker}>{item.ticker}</Text>
           <Text style={[styles.changePercentage, { color: changeColor }]}>
@@ -80,7 +91,7 @@ const HomeScreen = () => {
           </Text>
           <Text style={styles.volume}>Vol: {item.volume}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
