@@ -1,15 +1,24 @@
+import Feather from "@expo/vector-icons/Feather";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
+  Modal,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { LineChart } from "react-native-chart-kit";
+import { useThemeMode } from "../contexts/ThemeContext";
+import { useWatchlist } from "../contexts/WatchlistContext";
+import { getColors } from "../theme/colors";
 
 interface CompanyData {
   symbol: string;
@@ -56,20 +65,60 @@ interface InfoItem {
   type?: "currency" | "percentage" | "number" | "text";
 }
 
+interface TimeSeriesData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+interface TimeSeriesResponse {
+  symbol: string;
+  timeframe: string;
+  data: TimeSeriesData[];
+}
+
+interface Watchlist {
+  id: number;
+  name: string;
+  createdAt: string | null;
+}
+
 const { width } = Dimensions.get("window");
 
 const DetailScreen = () => {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const router = useRouter();
+  const { isDark } = useThemeMode();
+  const C = getColors(isDark);
+  const { watchlists, addCompanyToWatchlist, createWatchlist } = useWatchlist();
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeSeriesData, setTimeSeriesData] = useState<TimeSeriesData[]>([]);
+  const [selectedTimeframe, setSelectedTimeframe] = useState<string>("1D");
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [showWatchlistModal, setShowWatchlistModal] = useState(false);
+  const [newWatchlistName, setNewWatchlistName] = useState("");
+  const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(
+    null
+  );
 
   useEffect(() => {
     if (symbol) {
       fetchCompanyData();
+      fetchTimeSeriesData();
     }
   }, [symbol]);
+
+  useEffect(() => {
+    if (symbol) {
+      fetchTimeSeriesData();
+    }
+  }, [selectedTimeframe]);
 
   const fetchCompanyData = async () => {
     try {
@@ -90,6 +139,66 @@ const DetailScreen = () => {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTimeSeriesData = async () => {
+    try {
+      setChartLoading(true);
+      setChartError(null);
+      const response = await fetch(
+        `/timeseries?symbol=${symbol}&timeframe=${selectedTimeframe}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch time series data: ${response.status}`);
+      }
+
+      const data: TimeSeriesResponse = await response.json();
+      setTimeSeriesData(data.data);
+    } catch (err) {
+      console.error("Error fetching time series data:", err);
+      setChartError(
+        err instanceof Error ? err.message : "Failed to fetch time series data"
+      );
+    } finally {
+      setChartLoading(false);
+    }
+  };
+
+  const handleBookmarkPress = () => {
+    setShowWatchlistModal(true);
+  };
+
+  const handleCreateWatchlist = async () => {
+    if (newWatchlistName.trim()) {
+      try {
+        const newWatchlist = await createWatchlist(newWatchlistName.trim());
+        setNewWatchlistName("");
+        setSelectedWatchlistId(newWatchlist.id);
+      } catch (error) {
+        console.error("Error creating watchlist:", error);
+        Alert.alert("Error", "Failed to create watchlist");
+      }
+    }
+  };
+
+  const handleAddToWatchlist = async (watchlistId: number) => {
+    if (!companyData) return;
+
+    try {
+      await addCompanyToWatchlist({
+        symbol: companyData.symbol,
+        name: companyData.name,
+        watchlistId: watchlistId,
+      });
+
+      Alert.alert("Success", "Company added to watchlist!");
+      setShowWatchlistModal(false);
+      setSelectedWatchlistId(null);
+    } catch (error) {
+      console.error("Error adding company to watchlist:", error);
+      Alert.alert("Error", "Failed to add company to watchlist");
     }
   };
 
@@ -118,9 +227,11 @@ const DetailScreen = () => {
   };
 
   const renderInfoItem = ({ item }: { item: InfoItem }) => (
-    <View style={styles.infoItem}>
-      <Text style={styles.infoLabel}>{item.label}</Text>
-      <Text style={styles.infoValue}>
+    <View style={[styles.infoItem, { borderBottomColor: C.border }]}>
+      <Text style={[styles.infoLabel, { color: C.textMuted }]}>
+        {item.label}
+      </Text>
+      <Text style={[styles.infoValue, { color: C.textPrimary }]}>
         {item.type === "currency" && item.value !== "N/A"
           ? formatValue(item.value, "currency")
           : item.type === "percentage" && item.value !== "N/A"
@@ -133,8 +244,10 @@ const DetailScreen = () => {
   );
 
   const renderSection = (title: string, data: InfoItem[]) => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={[styles.section, { backgroundColor: C.surface }]}>
+      <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
+        {title}
+      </Text>
       <FlatList
         data={data}
         renderItem={renderInfoItem}
@@ -143,6 +256,141 @@ const DetailScreen = () => {
       />
     </View>
   );
+
+  const timeframes = ["1D", "1W", "1M", "3M", "6M", "1Y"];
+
+  const renderTimeframeButtons = () => (
+    <View
+      style={[
+        styles.timeframeContainer,
+        { backgroundColor: C.surface, borderColor: C.border },
+      ]}
+    >
+      <Text style={[styles.chartTitle, { color: C.textPrimary }]}>
+        Price Chart
+      </Text>
+      <View style={styles.timeframeButtons}>
+        {timeframes.map((timeframe) => (
+          <TouchableOpacity
+            key={timeframe}
+            style={[
+              styles.timeframeButton,
+              {
+                backgroundColor: C.inputBg,
+                borderColor: C.border,
+                borderWidth: 1,
+              },
+              selectedTimeframe === timeframe && { borderColor: C.accent },
+            ]}
+            onPress={() => setSelectedTimeframe(timeframe)}
+          >
+            <Text
+              style={[
+                styles.timeframeButtonText,
+                { color: C.textPrimary },
+                selectedTimeframe === timeframe && { color: C.accent },
+              ]}
+            >
+              {timeframe}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+
+  const renderChart = () => {
+    if (chartLoading) {
+      return (
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <ActivityIndicator size="small" color={C.accent} />
+          <Text style={[styles.chartLoadingText, { color: C.textSecondary }]}>
+            Loading chart data...
+          </Text>
+        </View>
+      );
+    }
+
+    if (chartError) {
+      return (
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <Text style={[styles.chartErrorText, { color: C.textSecondary }]}>
+            {chartError}
+          </Text>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: C.accent }]}
+            onPress={fetchTimeSeriesData}
+          >
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (timeSeriesData.length === 0) {
+      return (
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <Text style={[styles.chartErrorText, { color: C.textSecondary }]}>
+            No chart data available
+          </Text>
+        </View>
+      );
+    }
+
+    // Prepare data for the chart
+    const chartData = {
+      labels: timeSeriesData
+        .slice(-10) // Show last 10 data points for better readability
+        .map((item) => {
+          const date = new Date(item.time);
+          return selectedTimeframe === "1D"
+            ? date.toLocaleTimeString("en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : date.toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              });
+        }),
+      datasets: [
+        {
+          data: timeSeriesData.slice(-10).map((item) => item.close),
+          color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
+          strokeWidth: 2,
+        },
+      ],
+    };
+
+    return (
+      <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+        <LineChart
+          data={chartData}
+          width={width - 30}
+          height={220}
+          chartConfig={{
+            backgroundColor: C.surface,
+            backgroundGradientFrom: C.surface,
+            backgroundGradientTo: C.surface,
+            decimalPlaces: 2,
+            color: () => C.accent,
+            labelColor: () => C.textMuted,
+            style: {
+              borderRadius: 16,
+            },
+            propsForDots: {
+              r: "2",
+              strokeWidth: "2",
+              stroke: C.accent,
+            },
+            propsForBackgroundLines: { stroke: C.border },
+          }}
+          bezier
+          style={styles.chart}
+        />
+      </View>
+    );
+  };
 
   if (loading) {
     return (
@@ -264,73 +512,269 @@ const DetailScreen = () => {
   ];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: C.surface, borderBottomColor: C.border },
+        ]}
+      >
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={[styles.backButtonText, { color: C.accent }]}>
+            ← Back
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.symbol}>{companyData.symbol}</Text>
+        <Text style={[styles.symbol, { color: C.textPrimary }]}>
+          {companyData.symbol}
+        </Text>
+        <TouchableOpacity
+          style={styles.bookmarkButton}
+          onPress={handleBookmarkPress}
+        >
+          <Feather name="bookmark" size={24} color={C.textPrimary} />
+        </TouchableOpacity>
       </View>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: C.background }}
+      >
+        {renderTimeframeButtons()}
+        {renderChart()}
 
-      {companyData.description && (
-        <View style={styles.descriptionSection}>
-          <Text style={styles.descriptionTitle}>About</Text>
-          <Text style={styles.description}>{companyData.description}</Text>
+        {companyData.description && (
+          <View
+            style={[styles.descriptionSection, { backgroundColor: C.surface }]}
+          >
+            <Text style={[styles.descriptionTitle, { color: C.textPrimary }]}>
+              About
+            </Text>
+            <Text style={[styles.description, { color: C.textSecondary }]}>
+              {companyData.description}
+            </Text>
+          </View>
+        )}
+
+        {companyData.website && (
+          <View style={[styles.websiteSection, { backgroundColor: C.surface }]}>
+            <Text style={[styles.websiteTitle, { color: C.textPrimary }]}>
+              Website
+            </Text>
+            <Text style={[styles.website, { color: C.accent }]}>
+              {companyData.website}
+            </Text>
+          </View>
+        )}
+
+        {renderSection("Basic Information", basicInfo)}
+        {renderSection("Financial Metrics", financialInfo)}
+        {renderSection("Performance", performanceInfo)}
+        {renderSection("Growth", growthInfo)}
+        {renderSection("Dividend Information", dividendInfo)}
+
+        <View style={[styles.analystSection, { backgroundColor: C.surface }]}>
+          <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
+            Analyst Ratings
+          </Text>
+          <View style={styles.ratingsContainer}>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Strong Buy
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
+                {companyData.analystRatings.strongBuy || "N/A"}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Buy
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
+                {companyData.analystRatings.buy || "N/A"}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Hold
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
+                {companyData.analystRatings.hold || "N/A"}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Sell
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
+                {companyData.analystRatings.sell || "N/A"}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Strong Sell
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
+                {companyData.analystRatings.strongSell || "N/A"}
+              </Text>
+            </View>
+          </View>
         </View>
-      )}
 
-      {companyData.website && (
-        <View style={styles.websiteSection}>
-          <Text style={styles.websiteTitle}>Website</Text>
-          <Text style={styles.website}>{companyData.website}</Text>
-        </View>
-      )}
+        {/* Watchlist Modal */}
+        <Modal
+          visible={showWatchlistModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowWatchlistModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { backgroundColor: C.surface }]}>
+              <Text style={[styles.modalTitle, { color: C.textPrimary }]}>
+                Add to Watchlist
+              </Text>
 
-      {renderSection("Basic Information", basicInfo)}
-      {renderSection("Financial Metrics", financialInfo)}
-      {renderSection("Performance", performanceInfo)}
-      {renderSection("Growth", growthInfo)}
-      {renderSection("Dividend Information", dividendInfo)}
+              {/* Create new watchlist */}
+              <View style={styles.createWatchlistContainer}>
+                <TextInput
+                  style={[
+                    styles.watchlistInput,
+                    {
+                      backgroundColor: C.inputBg,
+                      borderColor: C.border,
+                      color: C.textPrimary,
+                    },
+                  ]}
+                  placeholder="Create new watchlist..."
+                  value={newWatchlistName}
+                  onChangeText={setNewWatchlistName}
+                  placeholderTextColor={C.textMuted}
+                />
+                <TouchableOpacity
+                  style={[styles.addButton, { backgroundColor: C.accent }]}
+                  onPress={handleCreateWatchlist}
+                >
+                  <Text style={styles.addButtonText}>Add</Text>
+                </TouchableOpacity>
+              </View>
 
-      <View style={styles.analystSection}>
-        <Text style={styles.sectionTitle}>Analyst Ratings</Text>
-        <View style={styles.ratingsContainer}>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Strong Buy</Text>
-            <Text style={[styles.ratingValue, { color: "#4CAF50" }]}>
-              {companyData.analystRatings.strongBuy || "N/A"}
-            </Text>
+              {/* Existing watchlists */}
+              <Text
+                style={[styles.watchlistSectionTitle, { color: C.textPrimary }]}
+              >
+                Existing Watchlists
+              </Text>
+              <FlatList
+                data={watchlists}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.watchlistItem,
+                      { borderBottomColor: C.border },
+                      selectedWatchlistId === item.id && {
+                        backgroundColor: C.inputBg,
+                      },
+                    ]}
+                    onPress={() => setSelectedWatchlistId(item.id)}
+                  >
+                    <Text
+                      style={[
+                        styles.watchlistItemText,
+                        { color: C.textPrimary },
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
+                    {selectedWatchlistId === item.id && (
+                      <Text style={[styles.checkmark, { color: C.accent }]}>
+                        ✓
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                keyExtractor={(item) => item.id.toString()}
+                style={styles.watchlistList}
+              />
+
+              {/* Action buttons */}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.cancelButton, { backgroundColor: C.inputBg }]}
+                  onPress={() => setShowWatchlistModal(false)}
+                >
+                  <Text
+                    style={[styles.cancelButtonText, { color: C.textPrimary }]}
+                  >
+                    Cancel
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.confirmButton,
+                    {
+                      backgroundColor: selectedWatchlistId ? C.accent : "#000",
+                    },
+                  ]}
+                  onPress={() =>
+                    selectedWatchlistId &&
+                    handleAddToWatchlist(selectedWatchlistId)
+                  }
+                  disabled={!selectedWatchlistId}
+                >
+                  <Text style={styles.confirmButtonText}>Add to Watchlist</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Buy</Text>
-            <Text style={[styles.ratingValue, { color: "#8BC34A" }]}>
-              {companyData.analystRatings.buy || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Hold</Text>
-            <Text style={[styles.ratingValue, { color: "#FF9800" }]}>
-              {companyData.analystRatings.hold || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Sell</Text>
-            <Text style={[styles.ratingValue, { color: "#FF5722" }]}>
-              {companyData.analystRatings.sell || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Strong Sell</Text>
-            <Text style={[styles.ratingValue, { color: "#F44336" }]}>
-              {companyData.analystRatings.strongSell || "N/A"}
-            </Text>
-          </View>
-        </View>
-      </View>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -372,7 +816,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     padding: 15,
+    paddingTop: 30,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
@@ -390,6 +836,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#333",
+    flex: 1,
+    textAlign: "center",
   },
   descriptionSection: {
     backgroundColor: "#fff",
@@ -491,6 +939,188 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  timeframeContainer: {
+    backgroundColor: "#fff",
+    padding: 15,
+    marginBottom: 10,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 15,
+  },
+  timeframeButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  timeframeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#f0f0f0",
+    minWidth: 40,
+    alignItems: "center",
+  },
+  timeframeButtonActive: {
+    backgroundColor: "#007AFF",
+  },
+  timeframeButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+  },
+  timeframeButtonTextActive: {
+    color: "#fff",
+  },
+  chartContainer: {
+    backgroundColor: "#fff",
+    padding: 15,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  chart: {
+    marginVertical: 8,
+    borderRadius: 16,
+  },
+  chartLoadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#666",
+  },
+  chartErrorText: {
+    fontSize: 14,
+    color: "#F44336",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  bookmarkButton: {
+    padding: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    width: 40,
+    height: 40,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 25,
+    maxHeight: "80%",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  createWatchlistContainer: {
+    flexDirection: "row",
+    marginBottom: 25,
+    alignItems: "center",
+    gap: 12,
+  },
+  watchlistInput: {
+    flex: 1,
+    height: 50,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  addButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 60,
+    alignItems: "center",
+  },
+  addButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  watchlistSectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 15,
+    marginTop: 5,
+  },
+  watchlistList: {
+    maxHeight: 200,
+    marginBottom: 20,
+  },
+  watchlistItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  selectedWatchlistItem: {
+    backgroundColor: "#e3f2fd",
+  },
+  watchlistItemText: {
+    fontSize: 16,
+    color: "#333",
+  },
+  checkmark: {
+    fontSize: 18,
+    color: "#007AFF",
+    fontWeight: "bold",
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#f0f0f0",
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginRight: 10,
+    alignItems: "center",
+  },
+  cancelButtonText: {
+    color: "#666",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: "#007AFF",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  disabledButton: {
+    backgroundColor: "#ccc",
   },
 });
 
