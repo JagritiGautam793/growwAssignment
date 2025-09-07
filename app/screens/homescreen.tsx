@@ -2,6 +2,7 @@ import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   FlatList,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface StockData {
   ticker: string;
@@ -38,14 +40,14 @@ interface SearchResult {
 }
 
 const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 30) / 2; // 30 for padding and gap
+const CARD_WIDTH = (width - 50) / 2; // 50 for padding and gap (increased for better spacing)
 
 // Debounce utility function
 function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
+  let timeout: ReturnType<typeof setTimeout>;
   return (...args: Parameters<T>) => {
     clearTimeout(timeout);
     timeout = setTimeout(() => func(...args), wait);
@@ -60,7 +62,10 @@ const HomeScreen = () => {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const searchAnimation = useState(new Animated.Value(0))[0];
 
   useEffect(() => {
     const fetchData = async () => {
@@ -134,7 +139,22 @@ const HomeScreen = () => {
     setSearchQuery(text);
   };
 
+  const handleSearchFocus = () => {
+    setIsSearchFocused(true);
+    Animated.timing(searchAnimation, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  };
+
   const handleSearchBlur = () => {
+    setIsSearchFocused(false);
+    Animated.timing(searchAnimation, {
+      toValue: 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
     // Small delay to allow for search result selection
     setTimeout(() => {
       setShowSearchResults(false);
@@ -195,31 +215,83 @@ const HomeScreen = () => {
     </TouchableOpacity>
   );
 
-  const renderSearchBar = () => (
-    <View style={styles.searchContainer}>
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Search stocks..."
-        value={searchQuery}
-        onChangeText={handleSearchChange}
-        onBlur={handleSearchBlur}
-        placeholderTextColor="#999"
-      />
-      {searchLoading && (
-        <ActivityIndicator
-          size="small"
-          color="#007AFF"
-          style={styles.searchLoading}
-        />
-      )}
+  const renderAppHeader = () => (
+    <View style={styles.appHeader}>
+      <Text style={styles.appTitle}>Stocks App</Text>
+      <Text style={styles.appSubtitle}>Track your investments</Text>
     </View>
   );
+
+  const renderSearchBar = () => {
+    const searchContainerStyle = [
+      styles.searchContainer,
+      {
+        shadowOpacity: searchAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.1, 0.2],
+        }),
+        elevation: searchAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [2, 8],
+        }),
+      },
+    ];
+
+    return (
+      <Animated.View style={searchContainerStyle}>
+        <View style={styles.searchInputContainer}>
+          <View style={styles.searchIconContainer}>
+            <Text style={styles.searchIcon}>⌕</Text>
+          </View>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search stocks, companies..."
+            value={searchQuery}
+            onChangeText={handleSearchChange}
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
+            placeholderTextColor="#8E8E93"
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {searchLoading && (
+            <ActivityIndicator
+              size="small"
+              color="#007AFF"
+              style={styles.searchLoading}
+            />
+          )}
+        </View>
+      </Animated.View>
+    );
+  };
 
   const renderSearchResults = () => {
     if (!showSearchResults || searchResults.length === 0) return null;
 
     return (
-      <View style={styles.searchResultsContainer}>
+      <Animated.View
+        style={[
+          styles.searchResultsContainer,
+          {
+            opacity: searchAnimation,
+            transform: [
+              {
+                translateY: searchAnimation.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [-10, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.searchResultsHeader}>
+          <Text style={styles.searchResultsTitle}>
+            {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}{" "}
+            found
+          </Text>
+        </View>
         <FlatList
           data={searchResults}
           renderItem={renderSearchResult}
@@ -227,7 +299,7 @@ const HomeScreen = () => {
           showsVerticalScrollIndicator={false}
           style={styles.searchResultsList}
         />
-      </View>
+      </Animated.View>
     );
   };
 
@@ -255,7 +327,8 @@ const HomeScreen = () => {
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      {renderAppHeader()}
       {renderSearchBar()}
       {renderSearchResults()}
       <FlatList
@@ -264,6 +337,7 @@ const HomeScreen = () => {
         keyExtractor={(item) => item.title}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContainer}
+        style={styles.mainContent}
       />
     </View>
   );
@@ -279,22 +353,53 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  mainContent: {
+    flex: 1,
+  },
   listContainer: {
     padding: 15,
+    paddingBottom: 100, // Extra padding for tab bar
+  },
+  appHeader: {
+    backgroundColor: "#fff",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E5EA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  appTitle: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#1C1C1E",
+    marginBottom: 4,
+    letterSpacing: -0.5,
+  },
+  appSubtitle: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#8E8E93",
+    letterSpacing: 0.2,
   },
   section: {
     marginBottom: 25,
   },
   sectionHeader: {
-    fontSize: 22,
-    fontWeight: "bold",
-    marginBottom: 15,
-    color: "#333",
-    textAlign: "center",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 20,
+    color: "#1C1C1E",
+    textAlign: "left",
+    letterSpacing: -0.3,
   },
   row: {
     justifyContent: "space-between",
     marginBottom: 10,
+    paddingHorizontal: 5, // Add horizontal padding for better spacing
   },
   card: {
     backgroundColor: "#fff",
@@ -346,56 +451,96 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     backgroundColor: "#fff",
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E5EA",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#F2F2F7",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: "#E5E5EA",
+  },
+  searchIconContainer: {
+    marginRight: 12,
+  },
+  searchIcon: {
+    fontSize: 16,
+    color: "#8E8E93",
+    fontWeight: "400",
   },
   searchInput: {
     flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
-    borderRadius: 20,
-    paddingHorizontal: 15,
     fontSize: 16,
-    backgroundColor: "#f8f8f8",
+    color: "#1C1C1E",
+    paddingVertical: 0,
+    margin: 0,
   },
   searchLoading: {
-    marginLeft: 10,
+    marginLeft: 12,
   },
   searchResultsContainer: {
     backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
-    maxHeight: 200,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#E5E5EA",
+    maxHeight: 300,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  searchResultsHeader: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F2F2F7",
+    backgroundColor: "#FAFAFA",
+  },
+  searchResultsTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#8E8E93",
   },
   searchResultsList: {
-    maxHeight: 200,
+    maxHeight: 250,
   },
   searchResultItem: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F2F2F7",
+    backgroundColor: "#fff",
   },
   searchResultContent: {
     flex: 1,
   },
   searchResultSymbol: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#1C1C1E",
     marginBottom: 4,
   },
   searchResultName: {
-    fontSize: 14,
-    color: "#666",
-    marginBottom: 2,
+    fontSize: 15,
+    color: "#48484A",
+    marginBottom: 6,
+    lineHeight: 20,
   },
   searchResultDetails: {
-    fontSize: 12,
-    color: "#888",
+    fontSize: 13,
+    color: "#8E8E93",
+    fontWeight: "500",
   },
 });
 

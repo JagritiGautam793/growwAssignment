@@ -1,3 +1,4 @@
+import Feather from "@expo/vector-icons/Feather";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
@@ -5,6 +6,7 @@ import {
   Dimensions,
   FlatList,
   Modal,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -501,7 +503,7 @@ const DetailScreen = () => {
   ];
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -514,148 +516,149 @@ const DetailScreen = () => {
           style={styles.bookmarkButton}
           onPress={handleBookmarkPress}
         >
-          <Text style={styles.bookmarkButtonText}>🔖</Text>
+          <Feather name="bookmark" size={24} color="black" />
         </TouchableOpacity>
       </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {renderTimeframeButtons()}
+        {renderChart()}
 
-      {renderTimeframeButtons()}
-      {renderChart()}
-
-      {companyData.description && (
-        <View style={styles.descriptionSection}>
-          <Text style={styles.descriptionTitle}>About</Text>
-          <Text style={styles.description}>{companyData.description}</Text>
-        </View>
-      )}
-
-      {companyData.website && (
-        <View style={styles.websiteSection}>
-          <Text style={styles.websiteTitle}>Website</Text>
-          <Text style={styles.website}>{companyData.website}</Text>
-        </View>
-      )}
-
-      {renderSection("Basic Information", basicInfo)}
-      {renderSection("Financial Metrics", financialInfo)}
-      {renderSection("Performance", performanceInfo)}
-      {renderSection("Growth", growthInfo)}
-      {renderSection("Dividend Information", dividendInfo)}
-
-      <View style={styles.analystSection}>
-        <Text style={styles.sectionTitle}>Analyst Ratings</Text>
-        <View style={styles.ratingsContainer}>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Strong Buy</Text>
-            <Text style={[styles.ratingValue, { color: "#4CAF50" }]}>
-              {companyData.analystRatings.strongBuy || "N/A"}
-            </Text>
+        {companyData.description && (
+          <View style={styles.descriptionSection}>
+            <Text style={styles.descriptionTitle}>About</Text>
+            <Text style={styles.description}>{companyData.description}</Text>
           </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Buy</Text>
-            <Text style={[styles.ratingValue, { color: "#8BC34A" }]}>
-              {companyData.analystRatings.buy || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Hold</Text>
-            <Text style={[styles.ratingValue, { color: "#FF9800" }]}>
-              {companyData.analystRatings.hold || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Sell</Text>
-            <Text style={[styles.ratingValue, { color: "#FF5722" }]}>
-              {companyData.analystRatings.sell || "N/A"}
-            </Text>
-          </View>
-          <View style={styles.ratingItem}>
-            <Text style={styles.ratingLabel}>Strong Sell</Text>
-            <Text style={[styles.ratingValue, { color: "#F44336" }]}>
-              {companyData.analystRatings.strongSell || "N/A"}
-            </Text>
-          </View>
-        </View>
-      </View>
+        )}
 
-      {/* Watchlist Modal */}
-      <Modal
-        visible={showWatchlistModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowWatchlistModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Add to Watchlist</Text>
+        {companyData.website && (
+          <View style={styles.websiteSection}>
+            <Text style={styles.websiteTitle}>Website</Text>
+            <Text style={styles.website}>{companyData.website}</Text>
+          </View>
+        )}
 
-            {/* Create new watchlist */}
-            <View style={styles.createWatchlistContainer}>
-              <TextInput
-                style={styles.watchlistInput}
-                placeholder="Create new watchlist..."
-                value={newWatchlistName}
-                onChangeText={setNewWatchlistName}
-                placeholderTextColor="#999"
-              />
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={handleCreateWatchlist}
-              >
-                <Text style={styles.addButtonText}>Add</Text>
-              </TouchableOpacity>
+        {renderSection("Basic Information", basicInfo)}
+        {renderSection("Financial Metrics", financialInfo)}
+        {renderSection("Performance", performanceInfo)}
+        {renderSection("Growth", growthInfo)}
+        {renderSection("Dividend Information", dividendInfo)}
+
+        <View style={styles.analystSection}>
+          <Text style={styles.sectionTitle}>Analyst Ratings</Text>
+          <View style={styles.ratingsContainer}>
+            <View style={styles.ratingItem}>
+              <Text style={styles.ratingLabel}>Strong Buy</Text>
+              <Text style={[styles.ratingValue, { color: "#4CAF50" }]}>
+                {companyData.analystRatings.strongBuy || "N/A"}
+              </Text>
             </View>
+            <View style={styles.ratingItem}>
+              <Text style={styles.ratingLabel}>Buy</Text>
+              <Text style={[styles.ratingValue, { color: "#8BC34A" }]}>
+                {companyData.analystRatings.buy || "N/A"}
+              </Text>
+            </View>
+            <View style={styles.ratingItem}>
+              <Text style={styles.ratingLabel}>Hold</Text>
+              <Text style={[styles.ratingValue, { color: "#FF9800" }]}>
+                {companyData.analystRatings.hold || "N/A"}
+              </Text>
+            </View>
+            <View style={styles.ratingItem}>
+              <Text style={styles.ratingLabel}>Sell</Text>
+              <Text style={[styles.ratingValue, { color: "#FF5722" }]}>
+                {companyData.analystRatings.sell || "N/A"}
+              </Text>
+            </View>
+            <View style={styles.ratingItem}>
+              <Text style={styles.ratingLabel}>Strong Sell</Text>
+              <Text style={[styles.ratingValue, { color: "#F44336" }]}>
+                {companyData.analystRatings.strongSell || "N/A"}
+              </Text>
+            </View>
+          </View>
+        </View>
 
-            {/* Existing watchlists */}
-            <Text style={styles.watchlistSectionTitle}>
-              Existing Watchlists
-            </Text>
-            <FlatList
-              data={watchlists}
-              renderItem={({ item }) => (
+        {/* Watchlist Modal */}
+        <Modal
+          visible={showWatchlistModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowWatchlistModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Add to Watchlist</Text>
+
+              {/* Create new watchlist */}
+              <View style={styles.createWatchlistContainer}>
+                <TextInput
+                  style={styles.watchlistInput}
+                  placeholder="Create new watchlist..."
+                  value={newWatchlistName}
+                  onChangeText={setNewWatchlistName}
+                  placeholderTextColor="#999"
+                />
+                <TouchableOpacity
+                  style={styles.addButton}
+                  onPress={handleCreateWatchlist}
+                >
+                  <Text style={styles.addButtonText}>Add</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Existing watchlists */}
+              <Text style={styles.watchlistSectionTitle}>
+                Existing Watchlists
+              </Text>
+              <FlatList
+                data={watchlists}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.watchlistItem,
+                      selectedWatchlistId === item.id &&
+                        styles.selectedWatchlistItem,
+                    ]}
+                    onPress={() => setSelectedWatchlistId(item.id)}
+                  >
+                    <Text style={styles.watchlistItemText}>{item.name}</Text>
+                    {selectedWatchlistId === item.id && (
+                      <Text style={styles.checkmark}>✓</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+                keyExtractor={(item) => item.id.toString()}
+                style={styles.watchlistList}
+              />
+
+              {/* Action buttons */}
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setShowWatchlistModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={[
-                    styles.watchlistItem,
-                    selectedWatchlistId === item.id &&
-                      styles.selectedWatchlistItem,
+                    styles.confirmButton,
+                    !selectedWatchlistId && styles.disabledButton,
                   ]}
-                  onPress={() => setSelectedWatchlistId(item.id)}
+                  onPress={() =>
+                    selectedWatchlistId &&
+                    handleAddToWatchlist(selectedWatchlistId)
+                  }
+                  disabled={!selectedWatchlistId}
                 >
-                  <Text style={styles.watchlistItemText}>{item.name}</Text>
-                  {selectedWatchlistId === item.id && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
+                  <Text style={styles.confirmButtonText}>Add to Watchlist</Text>
                 </TouchableOpacity>
-              )}
-              keyExtractor={(item) => item.id.toString()}
-              style={styles.watchlistList}
-            />
-
-            {/* Action buttons */}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowWatchlistModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.confirmButton,
-                  !selectedWatchlistId && styles.disabledButton,
-                ]}
-                onPress={() =>
-                  selectedWatchlistId &&
-                  handleAddToWatchlist(selectedWatchlistId)
-                }
-                disabled={!selectedWatchlistId}
-              >
-                <Text style={styles.confirmButtonText}>Add to Watchlist</Text>
-              </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
@@ -697,7 +700,9 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     padding: 15,
+    paddingTop: 30,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#e0e0e0",
@@ -715,6 +720,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "bold",
     color: "#333",
+    flex: 1,
+    textAlign: "center",
   },
   descriptionSection: {
     backgroundColor: "#fff",
@@ -875,10 +882,10 @@ const styles = StyleSheet.create({
   },
   bookmarkButton: {
     padding: 8,
-    marginLeft: 10,
-  },
-  bookmarkButtonText: {
-    fontSize: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    width: 40,
+    height: 40,
   },
   modalOverlay: {
     flex: 1,
@@ -889,7 +896,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
+    padding: 25,
     maxHeight: "80%",
   },
   modalTitle: {
@@ -901,25 +908,35 @@ const styles = StyleSheet.create({
   },
   createWatchlistContainer: {
     flexDirection: "row",
-    marginBottom: 20,
+    marginBottom: 25,
     alignItems: "center",
+    gap: 12,
   },
   watchlistInput: {
     flex: 1,
-    height: 40,
-    borderWidth: 1,
+    height: 50,
+    borderWidth: 2,
     borderColor: "#e0e0e0",
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    borderRadius: 12,
+    paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: "#f8f8f8",
-    marginRight: 10,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   addButton: {
     backgroundColor: "#007AFF",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    minWidth: 60,
+    alignItems: "center",
   },
   addButtonText: {
     color: "#fff",
@@ -927,10 +944,11 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   watchlistSectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
     color: "#333",
-    marginBottom: 10,
+    marginBottom: 15,
+    marginTop: 5,
   },
   watchlistList: {
     maxHeight: 200,
