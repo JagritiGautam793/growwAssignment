@@ -8,7 +8,9 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useThemeMode } from "../contexts/ThemeContext";
 import { useWatchlist } from "../contexts/WatchlistContext";
+import { getColors } from "../theme/colors";
 
 interface Watchlist {
   id: number;
@@ -34,6 +36,8 @@ const WatchlistScreen = () => {
     removeCompanyFromWatchlist,
   } = useWatchlist();
   const router = useRouter();
+  const { isDark } = useThemeMode();
+  const C = getColors(isDark);
 
   const handleWatchlistPress = (watchlist: Watchlist) => {
     setSelectedWatchlist(watchlist);
@@ -91,30 +95,45 @@ const WatchlistScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading watchlists...</Text>
+      <View style={[styles.loaderContainer, { backgroundColor: C.background }]}>
+        <ActivityIndicator size="large" color={C.accent} />
+        <Text style={[styles.loadingText, { color: C.textSecondary }]}>
+          Loading watchlists...
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Watchlists</Text>
+    <View style={[styles.container, { backgroundColor: C.background }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: C.surface, borderBottomColor: C.border },
+        ]}
+      >
+        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>
+          My Watchlists
+        </Text>
       </View>
 
       {watchlists.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>No watchlists created yet</Text>
-          <Text style={styles.emptySubtext}>
+          <Text style={[styles.emptyText, { color: C.textSecondary }]}>
+            No watchlists created yet
+          </Text>
+          <Text style={[styles.emptySubtext, { color: C.textMuted }]}>
             Add companies to watchlists from the details screen
           </Text>
         </View>
       ) : (
         <>
-          <View style={styles.watchlistSection}>
-            <Text style={styles.sectionTitle}>Watchlists</Text>
+          <View
+            style={[styles.watchlistSection, { backgroundColor: C.surface }]}
+          >
+            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
+              Watchlists
+            </Text>
             <FlatList
               data={watchlists}
               renderItem={renderWatchlistItem}
@@ -126,20 +145,61 @@ const WatchlistScreen = () => {
           </View>
 
           {selectedWatchlist && (
-            <View style={styles.companiesSection}>
-              <Text style={styles.sectionTitle}>
+            <View
+              style={[styles.companiesSection, { backgroundColor: C.surface }]}
+            >
+              <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
                 Companies in {selectedWatchlist.name}
               </Text>
               {companies.length === 0 ? (
                 <View style={styles.emptyContainer}>
-                  <Text style={styles.emptyText}>
+                  <Text style={[styles.emptyText, { color: C.textSecondary }]}>
                     No companies in this watchlist
                   </Text>
                 </View>
               ) : (
                 <FlatList
                   data={companies}
-                  renderItem={renderCompanyItem}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      style={[
+                        styles.companyItem,
+                        { borderBottomColor: C.border },
+                      ]}
+                      onPress={() => handleCompanyPress(item.symbol)}
+                    >
+                      <View style={styles.companyInfo}>
+                        <Text
+                          style={[
+                            styles.companySymbol,
+                            { color: C.textPrimary },
+                          ]}
+                        >
+                          {item.symbol}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.companyName,
+                            { color: C.textSecondary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.name}
+                        </Text>
+                        <Text
+                          style={[styles.addedDate, { color: C.textMuted }]}
+                        >
+                          Added: {new Date(item.addedAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.removeButton]}
+                        onPress={() => handleRemoveCompany(item.id)}
+                      >
+                        <Text style={styles.removeButtonText}>×</Text>
+                      </TouchableOpacity>
+                    </TouchableOpacity>
+                  )}
                   keyExtractor={(item) => item.id.toString()}
                   showsVerticalScrollIndicator={false}
                   style={styles.companiesList}

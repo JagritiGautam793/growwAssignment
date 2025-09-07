@@ -12,6 +12,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ThemeToggleCompact } from "../components/ThemeToggleCompact";
+import { useThemeMode } from "../contexts/ThemeContext";
+import { getColors } from "../theme/colors";
 
 interface StockData {
   ticker: string;
@@ -66,6 +69,8 @@ const HomeScreen = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const searchAnimation = useState(new Animated.Value(0))[0];
+  const { isDark } = useThemeMode();
+  const C = getColors(isDark);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -169,29 +174,38 @@ const HomeScreen = () => {
     type: "gainer" | "loser";
   }) => {
     const isPositive = parseFloat(item.change_percentage) >= 0;
-    const changeColor = type === "gainer" ? "#4CAF50" : "#F44336";
+    const changeColor = type === "gainer" ? C.positive : C.negative;
 
     return (
       <TouchableOpacity
-        style={[styles.card, { width: CARD_WIDTH }]}
+        style={[
+          styles.card,
+          { width: CARD_WIDTH, backgroundColor: C.card, borderColor: C.border },
+        ]}
         onPress={() => handleCardPress(item.ticker)}
         activeOpacity={0.7}
       >
         <View style={styles.cardHeader}>
-          <Text style={styles.ticker}>{item.ticker}</Text>
+          <Text style={[styles.ticker, { color: C.textPrimary }]}>
+            {item.ticker}
+          </Text>
           <Text style={[styles.changePercentage, { color: changeColor }]}>
             {isPositive ? "+" : ""}
             {item.change_percentage}%
           </Text>
         </View>
 
-        <Text style={styles.price}>${item.price}</Text>
+        <Text style={[styles.price, { color: C.textPrimary }]}>
+          ${item.price}
+        </Text>
 
         <View style={styles.cardDetails}>
-          <Text style={styles.changeAmount}>
+          <Text style={[styles.changeAmount, { color: C.textSecondary }]}>
             {isPositive ? "+" : ""}${item.change_amount}
           </Text>
-          <Text style={styles.volume}>Vol: {item.volume}</Text>
+          <Text style={[styles.volume, { color: C.textMuted }]}>
+            Vol: {item.volume}
+          </Text>
         </View>
       </TouchableOpacity>
     );
@@ -199,16 +213,24 @@ const HomeScreen = () => {
 
   const renderSearchResult = ({ item }: { item: SearchResult }) => (
     <TouchableOpacity
-      style={styles.searchResultItem}
+      style={[
+        styles.searchResultItem,
+        { backgroundColor: C.surface, borderBottomColor: C.border },
+      ]}
       onPress={() => handleSearchResultPress(item.symbol)}
       activeOpacity={0.7}
     >
       <View style={styles.searchResultContent}>
-        <Text style={styles.searchResultSymbol}>{item.symbol}</Text>
-        <Text style={styles.searchResultName} numberOfLines={1}>
+        <Text style={[styles.searchResultSymbol, { color: C.textPrimary }]}>
+          {item.symbol}
+        </Text>
+        <Text
+          style={[styles.searchResultName, { color: C.textSecondary }]}
+          numberOfLines={1}
+        >
           {item.name}
         </Text>
-        <Text style={styles.searchResultDetails}>
+        <Text style={[styles.searchResultDetails, { color: C.textMuted }]}>
           {item.type} • {item.region} • {item.currency}
         </Text>
       </View>
@@ -216,9 +238,29 @@ const HomeScreen = () => {
   );
 
   const renderAppHeader = () => (
-    <View style={styles.appHeader}>
-      <Text style={styles.appTitle}>Stocks App</Text>
-      <Text style={styles.appSubtitle}>Track your investments</Text>
+    <View
+      style={[
+        styles.appHeader,
+        { backgroundColor: C.surface, borderBottomColor: C.border },
+      ]}
+    >
+      <View
+        style={{
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
+        <View>
+          <Text style={[styles.appTitle, { color: C.textPrimary }]}>
+            Stocks App
+          </Text>
+          <Text style={[styles.appSubtitle, { color: C.textMuted }]}>
+            Track your investments
+          </Text>
+        </View>
+        <ThemeToggleCompact />
+      </View>
     </View>
   );
 
@@ -226,6 +268,8 @@ const HomeScreen = () => {
     const searchContainerStyle = [
       styles.searchContainer,
       {
+        backgroundColor: C.surface,
+        borderBottomColor: C.border,
         shadowOpacity: searchAnimation.interpolate({
           inputRange: [0, 1],
           outputRange: [0.1, 0.2],
@@ -239,25 +283,30 @@ const HomeScreen = () => {
 
     return (
       <Animated.View style={searchContainerStyle}>
-        <View style={styles.searchInputContainer}>
+        <View
+          style={[
+            styles.searchInputContainer,
+            { backgroundColor: C.inputBg, borderColor: C.inputBorder },
+          ]}
+        >
           <View style={styles.searchIconContainer}>
-            <Text style={styles.searchIcon}>⌕</Text>
+            <Text style={[styles.searchIcon, { color: C.textMuted }]}>⌕</Text>
           </View>
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: C.textPrimary }]}
             placeholder="Search stocks, companies..."
             value={searchQuery}
             onChangeText={handleSearchChange}
             onFocus={handleSearchFocus}
             onBlur={handleSearchBlur}
-            placeholderTextColor="#8E8E93"
+            placeholderTextColor={C.textMuted}
             returnKeyType="search"
             clearButtonMode="while-editing"
           />
           {searchLoading && (
             <ActivityIndicator
               size="small"
-              color="#007AFF"
+              color={C.accent}
               style={styles.searchLoading}
             />
           )}
@@ -274,6 +323,8 @@ const HomeScreen = () => {
         style={[
           styles.searchResultsContainer,
           {
+            backgroundColor: C.surface,
+            borderBottomColor: C.border,
             opacity: searchAnimation,
             transform: [
               {
@@ -286,8 +337,13 @@ const HomeScreen = () => {
           },
         ]}
       >
-        <View style={styles.searchResultsHeader}>
-          <Text style={styles.searchResultsTitle}>
+        <View
+          style={[
+            styles.searchResultsHeader,
+            { backgroundColor: C.surface, borderBottomColor: C.border },
+          ]}
+        >
+          <Text style={[styles.searchResultsTitle, { color: C.textMuted }]}>
             {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}{" "}
             found
           </Text>
@@ -305,7 +361,9 @@ const HomeScreen = () => {
 
   const renderSection = ({ item: section }: { item: SectionData }) => (
     <View style={styles.section}>
-      <Text style={styles.sectionHeader}>{section.title}</Text>
+      <Text style={[styles.sectionHeader, { color: C.textPrimary }]}>
+        {section.title}
+      </Text>
       <FlatList
         data={section.data}
         renderItem={({ item }) => renderStockCard({ item, type: section.type })}
@@ -327,7 +385,15 @@ const HomeScreen = () => {
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+    <View
+      style={[
+        styles.container,
+        {
+          paddingTop: insets.top,
+          backgroundColor: C.background,
+        },
+      ]}
+    >
       {renderAppHeader()}
       {renderSearchBar()}
       {renderSearchResults()}

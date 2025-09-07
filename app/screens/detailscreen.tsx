@@ -16,7 +16,9 @@ import {
   View,
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
+import { useThemeMode } from "../contexts/ThemeContext";
 import { useWatchlist } from "../contexts/WatchlistContext";
+import { getColors } from "../theme/colors";
 
 interface CompanyData {
   symbol: string;
@@ -89,6 +91,8 @@ const { width } = Dimensions.get("window");
 const DetailScreen = () => {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const router = useRouter();
+  const { isDark } = useThemeMode();
+  const C = getColors(isDark);
   const { watchlists, addCompanyToWatchlist, createWatchlist } = useWatchlist();
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -223,9 +227,11 @@ const DetailScreen = () => {
   };
 
   const renderInfoItem = ({ item }: { item: InfoItem }) => (
-    <View style={styles.infoItem}>
-      <Text style={styles.infoLabel}>{item.label}</Text>
-      <Text style={styles.infoValue}>
+    <View style={[styles.infoItem, { borderBottomColor: C.border }]}>
+      <Text style={[styles.infoLabel, { color: C.textMuted }]}>
+        {item.label}
+      </Text>
+      <Text style={[styles.infoValue, { color: C.textPrimary }]}>
         {item.type === "currency" && item.value !== "N/A"
           ? formatValue(item.value, "currency")
           : item.type === "percentage" && item.value !== "N/A"
@@ -238,8 +244,10 @@ const DetailScreen = () => {
   );
 
   const renderSection = (title: string, data: InfoItem[]) => (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={[styles.section, { backgroundColor: C.surface }]}>
+      <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
+        {title}
+      </Text>
       <FlatList
         data={data}
         renderItem={renderInfoItem}
@@ -252,23 +260,35 @@ const DetailScreen = () => {
   const timeframes = ["1D", "1W", "1M", "3M", "6M", "1Y"];
 
   const renderTimeframeButtons = () => (
-    <View style={styles.timeframeContainer}>
-      <Text style={styles.chartTitle}>Price Chart</Text>
+    <View
+      style={[
+        styles.timeframeContainer,
+        { backgroundColor: C.surface, borderColor: C.border },
+      ]}
+    >
+      <Text style={[styles.chartTitle, { color: C.textPrimary }]}>
+        Price Chart
+      </Text>
       <View style={styles.timeframeButtons}>
         {timeframes.map((timeframe) => (
           <TouchableOpacity
             key={timeframe}
             style={[
               styles.timeframeButton,
-              selectedTimeframe === timeframe && styles.timeframeButtonActive,
+              {
+                backgroundColor: C.inputBg,
+                borderColor: C.border,
+                borderWidth: 1,
+              },
+              selectedTimeframe === timeframe && { borderColor: C.accent },
             ]}
             onPress={() => setSelectedTimeframe(timeframe)}
           >
             <Text
               style={[
                 styles.timeframeButtonText,
-                selectedTimeframe === timeframe &&
-                  styles.timeframeButtonTextActive,
+                { color: C.textPrimary },
+                selectedTimeframe === timeframe && { color: C.accent },
               ]}
             >
               {timeframe}
@@ -282,19 +302,23 @@ const DetailScreen = () => {
   const renderChart = () => {
     if (chartLoading) {
       return (
-        <View style={styles.chartContainer}>
-          <ActivityIndicator size="small" color="#007AFF" />
-          <Text style={styles.chartLoadingText}>Loading chart data...</Text>
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <ActivityIndicator size="small" color={C.accent} />
+          <Text style={[styles.chartLoadingText, { color: C.textSecondary }]}>
+            Loading chart data...
+          </Text>
         </View>
       );
     }
 
     if (chartError) {
       return (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartErrorText}>{chartError}</Text>
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <Text style={[styles.chartErrorText, { color: C.textSecondary }]}>
+            {chartError}
+          </Text>
           <TouchableOpacity
-            style={styles.retryButton}
+            style={[styles.retryButton, { backgroundColor: C.accent }]}
             onPress={fetchTimeSeriesData}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
@@ -305,8 +329,10 @@ const DetailScreen = () => {
 
     if (timeSeriesData.length === 0) {
       return (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartErrorText}>No chart data available</Text>
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <Text style={[styles.chartErrorText, { color: C.textSecondary }]}>
+            No chart data available
+          </Text>
         </View>
       );
     }
@@ -337,26 +363,27 @@ const DetailScreen = () => {
     };
 
     return (
-      <View style={styles.chartContainer}>
+      <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
         <LineChart
           data={chartData}
           width={width - 30}
           height={220}
           chartConfig={{
-            backgroundColor: "#ffffff",
-            backgroundGradientFrom: "#ffffff",
-            backgroundGradientTo: "#ffffff",
+            backgroundColor: C.surface,
+            backgroundGradientFrom: C.surface,
+            backgroundGradientTo: C.surface,
             decimalPlaces: 2,
-            color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            color: () => C.accent,
+            labelColor: () => C.textMuted,
             style: {
               borderRadius: 16,
             },
             propsForDots: {
-              r: "4",
+              r: "2",
               strokeWidth: "2",
-              stroke: "#007AFF",
+              stroke: C.accent,
             },
+            propsForBackgroundLines: { stroke: C.border },
           }}
           bezier
           style={styles.chart}
@@ -485,37 +512,59 @@ const DetailScreen = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: C.background }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: C.surface, borderBottomColor: C.border },
+        ]}
+      >
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => router.back()}
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={[styles.backButtonText, { color: C.accent }]}>
+            ← Back
+          </Text>
         </TouchableOpacity>
-        <Text style={styles.symbol}>{companyData.symbol}</Text>
+        <Text style={[styles.symbol, { color: C.textPrimary }]}>
+          {companyData.symbol}
+        </Text>
         <TouchableOpacity
           style={styles.bookmarkButton}
           onPress={handleBookmarkPress}
         >
-          <Feather name="bookmark" size={24} color="black" />
+          <Feather name="bookmark" size={24} color={C.textPrimary} />
         </TouchableOpacity>
       </View>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        style={{ backgroundColor: C.background }}
+      >
         {renderTimeframeButtons()}
         {renderChart()}
 
         {companyData.description && (
-          <View style={styles.descriptionSection}>
-            <Text style={styles.descriptionTitle}>About</Text>
-            <Text style={styles.description}>{companyData.description}</Text>
+          <View
+            style={[styles.descriptionSection, { backgroundColor: C.surface }]}
+          >
+            <Text style={[styles.descriptionTitle, { color: C.textPrimary }]}>
+              About
+            </Text>
+            <Text style={[styles.description, { color: C.textSecondary }]}>
+              {companyData.description}
+            </Text>
           </View>
         )}
 
         {companyData.website && (
-          <View style={styles.websiteSection}>
-            <Text style={styles.websiteTitle}>Website</Text>
-            <Text style={styles.website}>{companyData.website}</Text>
+          <View style={[styles.websiteSection, { backgroundColor: C.surface }]}>
+            <Text style={[styles.websiteTitle, { color: C.textPrimary }]}>
+              Website
+            </Text>
+            <Text style={[styles.website, { color: C.accent }]}>
+              {companyData.website}
+            </Text>
           </View>
         )}
 
@@ -525,36 +574,93 @@ const DetailScreen = () => {
         {renderSection("Growth", growthInfo)}
         {renderSection("Dividend Information", dividendInfo)}
 
-        <View style={styles.analystSection}>
-          <Text style={styles.sectionTitle}>Analyst Ratings</Text>
+        <View style={[styles.analystSection, { backgroundColor: C.surface }]}>
+          <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
+            Analyst Ratings
+          </Text>
           <View style={styles.ratingsContainer}>
-            <View style={styles.ratingItem}>
-              <Text style={styles.ratingLabel}>Strong Buy</Text>
-              <Text style={[styles.ratingValue, { color: "#4CAF50" }]}>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Strong Buy
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
                 {companyData.analystRatings.strongBuy || "N/A"}
               </Text>
             </View>
-            <View style={styles.ratingItem}>
-              <Text style={styles.ratingLabel}>Buy</Text>
-              <Text style={[styles.ratingValue, { color: "#8BC34A" }]}>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Buy
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
                 {companyData.analystRatings.buy || "N/A"}
               </Text>
             </View>
-            <View style={styles.ratingItem}>
-              <Text style={styles.ratingLabel}>Hold</Text>
-              <Text style={[styles.ratingValue, { color: "#FF9800" }]}>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Hold
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
                 {companyData.analystRatings.hold || "N/A"}
               </Text>
             </View>
-            <View style={styles.ratingItem}>
-              <Text style={styles.ratingLabel}>Sell</Text>
-              <Text style={[styles.ratingValue, { color: "#FF5722" }]}>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Sell
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
                 {companyData.analystRatings.sell || "N/A"}
               </Text>
             </View>
-            <View style={styles.ratingItem}>
-              <Text style={styles.ratingLabel}>Strong Sell</Text>
-              <Text style={[styles.ratingValue, { color: "#F44336" }]}>
+            <View
+              style={[
+                styles.ratingItem,
+                {
+                  backgroundColor: C.card,
+                  borderColor: C.border,
+                  borderWidth: 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ratingLabel, { color: C.textPrimary }]}>
+                Strong Sell
+              </Text>
+              <Text style={[styles.ratingValue, { color: C.textPrimary }]}>
                 {companyData.analystRatings.strongSell || "N/A"}
               </Text>
             </View>
@@ -569,20 +675,29 @@ const DetailScreen = () => {
           onRequestClose={() => setShowWatchlistModal(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>Add to Watchlist</Text>
+            <View style={[styles.modalContent, { backgroundColor: C.surface }]}>
+              <Text style={[styles.modalTitle, { color: C.textPrimary }]}>
+                Add to Watchlist
+              </Text>
 
               {/* Create new watchlist */}
               <View style={styles.createWatchlistContainer}>
                 <TextInput
-                  style={styles.watchlistInput}
+                  style={[
+                    styles.watchlistInput,
+                    {
+                      backgroundColor: C.inputBg,
+                      borderColor: C.border,
+                      color: C.textPrimary,
+                    },
+                  ]}
                   placeholder="Create new watchlist..."
                   value={newWatchlistName}
                   onChangeText={setNewWatchlistName}
-                  placeholderTextColor="#999"
+                  placeholderTextColor={C.textMuted}
                 />
                 <TouchableOpacity
-                  style={styles.addButton}
+                  style={[styles.addButton, { backgroundColor: C.accent }]}
                   onPress={handleCreateWatchlist}
                 >
                   <Text style={styles.addButtonText}>Add</Text>
@@ -590,7 +705,9 @@ const DetailScreen = () => {
               </View>
 
               {/* Existing watchlists */}
-              <Text style={styles.watchlistSectionTitle}>
+              <Text
+                style={[styles.watchlistSectionTitle, { color: C.textPrimary }]}
+              >
                 Existing Watchlists
               </Text>
               <FlatList
@@ -599,14 +716,25 @@ const DetailScreen = () => {
                   <TouchableOpacity
                     style={[
                       styles.watchlistItem,
-                      selectedWatchlistId === item.id &&
-                        styles.selectedWatchlistItem,
+                      { borderBottomColor: C.border },
+                      selectedWatchlistId === item.id && {
+                        backgroundColor: C.inputBg,
+                      },
                     ]}
                     onPress={() => setSelectedWatchlistId(item.id)}
                   >
-                    <Text style={styles.watchlistItemText}>{item.name}</Text>
+                    <Text
+                      style={[
+                        styles.watchlistItemText,
+                        { color: C.textPrimary },
+                      ]}
+                    >
+                      {item.name}
+                    </Text>
                     {selectedWatchlistId === item.id && (
-                      <Text style={styles.checkmark}>✓</Text>
+                      <Text style={[styles.checkmark, { color: C.accent }]}>
+                        ✓
+                      </Text>
                     )}
                   </TouchableOpacity>
                 )}
@@ -617,15 +745,21 @@ const DetailScreen = () => {
               {/* Action buttons */}
               <View style={styles.modalActions}>
                 <TouchableOpacity
-                  style={styles.cancelButton}
+                  style={[styles.cancelButton, { backgroundColor: C.inputBg }]}
                   onPress={() => setShowWatchlistModal(false)}
                 >
-                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                  <Text
+                    style={[styles.cancelButtonText, { color: C.textPrimary }]}
+                  >
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
                     styles.confirmButton,
-                    !selectedWatchlistId && styles.disabledButton,
+                    {
+                      backgroundColor: selectedWatchlistId ? C.accent : "#000",
+                    },
                   ]}
                   onPress={() =>
                     selectedWatchlistId &&
