@@ -45,6 +45,19 @@ interface SearchResult {
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 50) / 2; // 50 for padding and gap (increased for better spacing)
 
+// Utility function to format volume numbers
+const formatVolume = (volume: string): string => {
+  const num = parseFloat(volume);
+  if (num >= 1000000000) {
+    return `${(num / 1000000000).toFixed(1)}B`;
+  } else if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(1)}M`;
+  } else if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return num.toString();
+};
+
 // Debounce utility function
 function debounce<T extends (...args: any[]) => any>(
   func: T,
@@ -66,6 +79,8 @@ const HomeScreen = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [isSelectingResult, setIsSelectingResult] = useState(false);
+  const [preventBlur, setPreventBlur] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const searchAnimation = useState(new Animated.Value(0))[0];
@@ -125,23 +140,34 @@ const HomeScreen = () => {
   }, [searchQuery, debouncedSearch]);
 
   const sections: SectionData[] = [
-    { title: "Top Gainers", data: gainers, type: "gainer" },
-    { title: "Top Losers", data: losers, type: "loser" },
+    { title: "Top Gainers", data: gainers.slice(0, 4), type: "gainer" },
+    { title: "Top Losers", data: losers.slice(0, 4), type: "loser" },
   ];
 
   const handleCardPress = (symbol: string) => {
+    console.log("=== REGULAR CARD PRESSED ===");
+    console.log("Symbol:", symbol);
+    console.log("Navigation path:", `/screens/detailscreen?symbol=${symbol}`);
     router.push(`/screens/detailscreen?symbol=${symbol}`);
+    console.log("Regular card navigation completed");
   };
 
-  const handleSearchResultPress = (symbol: string) => {
-    setSearchQuery("");
-    setShowSearchResults(false);
-    setSearchResults([]);
-    router.push(`/screens/detailscreen?symbol=${symbol}`);
+  const handleViewAllPress = (type: "gainer" | "loser") => {
+    router.push(`/screens/stocklistscreen?type=${type}`);
   };
 
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
+    // If user clears the search, hide results
+    if (text.trim() === "") {
+      setShowSearchResults(false);
+      setSearchResults([]);
+    }
+    // If user starts typing something completely different, hide old results
+    if (text.length === 1) {
+      setShowSearchResults(false);
+      setSearchResults([]);
+    }
   };
 
   const handleSearchFocus = () => {
@@ -154,16 +180,16 @@ const HomeScreen = () => {
   };
 
   const handleSearchBlur = () => {
+    console.log("Search input blurred - IGNORING to keep results visible");
     setIsSearchFocused(false);
     Animated.timing(searchAnimation, {
       toValue: 0,
       duration: 200,
       useNativeDriver: false,
     }).start();
-    // Small delay to allow for search result selection
-    setTimeout(() => {
-      setShowSearchResults(false);
-    }, 150);
+
+    // DO NOT hide search results on blur - let user tap them
+    // Results will be hidden when user selects one or clears search
   };
 
   const renderStockCard = ({
@@ -185,26 +211,45 @@ const HomeScreen = () => {
         onPress={() => handleCardPress(item.ticker)}
         activeOpacity={0.7}
       >
+        {/* Header with ticker symbol */}
         <View style={styles.cardHeader}>
-          <Text style={[styles.ticker, { color: C.textPrimary }]}>
+          <Text
+            style={[styles.ticker, { color: C.textPrimary }]}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
             {item.ticker}
-          </Text>
-          <Text style={[styles.changePercentage, { color: changeColor }]}>
-            {isPositive ? "+" : ""}
-            {item.change_percentage}%
           </Text>
         </View>
 
-        <Text style={[styles.price, { color: C.textPrimary }]}>
-          ${item.price}
-        </Text>
-
-        <View style={styles.cardDetails}>
-          <Text style={[styles.changeAmount, { color: C.textSecondary }]}>
-            {isPositive ? "+" : ""}${item.change_amount}
+        {/* Price section */}
+        <View style={styles.priceSection}>
+          <Text style={[styles.price, { color: C.textPrimary }]}>
+            ${parseFloat(item.price).toFixed(2)}
           </Text>
-          <Text style={[styles.volume, { color: C.textMuted }]}>
-            Vol: {item.volume}
+        </View>
+
+        {/* Performance indicators */}
+        <View style={styles.performanceSection}>
+          <View style={styles.changeContainer}>
+            <Text style={[styles.changeAmount, { color: changeColor }]}>
+              {isPositive ? "+" : ""}$
+              {Math.abs(parseFloat(item.change_amount)).toFixed(2)}
+            </Text>
+            <Text style={[styles.changePercentage, { color: changeColor }]}>
+              ({isPositive ? "+" : ""}
+              {item.change_percentage})
+            </Text>
+          </View>
+        </View>
+
+        {/* Volume info */}
+        <View style={styles.volumeSection}>
+          <Text style={[styles.volumeLabel, { color: C.textMuted }]}>
+            Volume
+          </Text>
+          <Text style={[styles.volume, { color: C.textSecondary }]}>
+            {formatVolume(item.volume)}
           </Text>
         </View>
       </TouchableOpacity>
@@ -217,8 +262,16 @@ const HomeScreen = () => {
         styles.searchResultItem,
         { backgroundColor: C.surface, borderBottomColor: C.border },
       ]}
-      onPress={() => handleSearchResultPress(item.symbol)}
-      activeOpacity={0.7}
+      onPress={() => {
+        console.log("🚀 INSTANT NAVIGATION for:", item.symbol);
+        router.push(`/screens/detailscreen?symbol=${item.symbol}` as any);
+        setSearchQuery("");
+        setShowSearchResults(false);
+        setSearchResults([]);
+      }}
+      activeOpacity={0.6}
+      delayPressIn={0}
+      delayPressOut={0}
     >
       <View style={styles.searchResultContent}>
         <Text style={[styles.searchResultSymbol, { color: C.textPrimary }]}>
@@ -316,24 +369,24 @@ const HomeScreen = () => {
   };
 
   const renderSearchResults = () => {
-    if (!showSearchResults || searchResults.length === 0) return null;
+    if (!showSearchResults || searchResults.length === 0) {
+      console.log("Not showing search results:", {
+        showSearchResults,
+        resultsCount: searchResults.length,
+      });
+      return null;
+    }
+
+    console.log("Rendering search results:", searchResults.length, "results");
+    console.log("First result:", searchResults[0]);
 
     return (
-      <Animated.View
+      <View
         style={[
           styles.searchResultsContainer,
           {
             backgroundColor: C.surface,
             borderBottomColor: C.border,
-            opacity: searchAnimation,
-            transform: [
-              {
-                translateY: searchAnimation.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [-10, 0],
-                }),
-              },
-            ],
           },
         ]}
       >
@@ -354,16 +407,30 @@ const HomeScreen = () => {
           keyExtractor={(item) => item.symbol}
           showsVerticalScrollIndicator={false}
           style={styles.searchResultsList}
+          scrollEnabled={true}
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews={false}
         />
-      </Animated.View>
+      </View>
     );
   };
 
   const renderSection = ({ item: section }: { item: SectionData }) => (
     <View style={styles.section}>
-      <Text style={[styles.sectionHeader, { color: C.textPrimary }]}>
-        {section.title}
-      </Text>
+      <View style={styles.sectionTitleContainer}>
+        <Text style={[styles.sectionHeader, { color: C.textPrimary }]}>
+          {section.title}
+        </Text>
+        <TouchableOpacity
+          style={[styles.viewAllButton, { backgroundColor: C.accent }]}
+          onPress={() => handleViewAllPress(section.type)}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.viewAllText, { color: C.surface }]}>
+            View All
+          </Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={section.data}
         renderItem={({ item }) => renderStockCard({ item, type: section.type })}
@@ -454,66 +521,103 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 25,
   },
+  sectionTitleContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
   sectionHeader: {
     fontSize: 24,
     fontWeight: "700",
-    marginBottom: 20,
     color: "#1C1C1E",
     textAlign: "left",
     letterSpacing: -0.3,
+    flex: 1,
+  },
+  viewAllButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#007AFF",
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#fff",
   },
   row: {
     justifyContent: "space-between",
-    marginBottom: 10,
-    paddingHorizontal: 5, // Add horizontal padding for better spacing
+    marginBottom: 16,
+    paddingHorizontal: 2,
   },
   card: {
     backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
     borderWidth: 1,
     borderColor: "#e0e0e0",
+    minHeight: 140,
+    justifyContent: "space-between",
   },
   cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   ticker: {
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "800",
     color: "#333",
-    flex: 1,
+    letterSpacing: 0.5,
+    textAlign: "left",
   },
-  changePercentage: {
-    fontSize: 14,
-    fontWeight: "600",
+  priceSection: {
+    marginBottom: 12,
   },
   price: {
-    fontSize: 18,
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: "700",
     color: "#333",
-    marginBottom: 8,
+    letterSpacing: -0.5,
   },
-  cardDetails: {
+  performanceSection: {
+    marginBottom: 12,
+  },
+  changeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+  },
+  changeAmount: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginRight: 6,
+  },
+  changePercentage: {
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  volumeSection: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
   },
-  changeAmount: {
+  volumeLabel: {
     fontSize: 12,
-    color: "#666",
     fontWeight: "500",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   volume: {
-    fontSize: 11,
-    color: "#888",
+    fontSize: 13,
+    fontWeight: "600",
   },
   searchContainer: {
     backgroundColor: "#fff",
@@ -583,10 +687,11 @@ const styles = StyleSheet.create({
   },
   searchResultItem: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderBottomWidth: 0.5,
     borderBottomColor: "#F2F2F7",
     backgroundColor: "#fff",
+    minHeight: 70,
   },
   searchResultContent: {
     flex: 1,

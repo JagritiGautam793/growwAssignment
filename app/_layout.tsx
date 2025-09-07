@@ -29,6 +29,10 @@ function NavigationRoot() {
           name="screens/detailscreen"
           options={{ headerShown: false }}
         />
+        <Stack.Screen
+          name="screens/stocklistscreen"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="+not-found" />
       </Stack>
       <StatusBar style={isDark ? "light" : "dark"} />
