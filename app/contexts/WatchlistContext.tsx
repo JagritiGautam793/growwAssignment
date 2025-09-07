@@ -5,7 +5,7 @@ import { watchlistService } from "../service/watchlist";
 interface Watchlist {
   id: number;
   name: string;
-  createdAt: string;
+  createdAt: string | null;
 }
 
 interface Company {
@@ -13,7 +13,7 @@ interface Company {
   symbol: string;
   name: string;
   watchlistId: number;
-  addedAt: string;
+  addedAt: string | null;
 }
 
 interface WatchlistContextType {
