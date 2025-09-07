@@ -3,6 +3,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Modal,
@@ -15,8 +16,7 @@ import {
   View,
 } from "react-native";
 import { LineChart } from "react-native-chart-kit";
-import { initDatabase } from "../db/client";
-import { watchlistService } from "../service/watchlist";
+import { useWatchlist } from "../contexts/WatchlistContext";
 
 interface CompanyData {
   symbol: string;
@@ -89,6 +89,7 @@ const { width } = Dimensions.get("window");
 const DetailScreen = () => {
   const { symbol } = useLocalSearchParams<{ symbol: string }>();
   const router = useRouter();
+  const { watchlists, addCompanyToWatchlist, createWatchlist } = useWatchlist();
   const [companyData, setCompanyData] = useState<CompanyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,7 +98,6 @@ const DetailScreen = () => {
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
   const [showWatchlistModal, setShowWatchlistModal] = useState(false);
-  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
   const [newWatchlistName, setNewWatchlistName] = useState("");
   const [selectedWatchlistId, setSelectedWatchlistId] = useState<number | null>(
     null
@@ -107,7 +107,6 @@ const DetailScreen = () => {
     if (symbol) {
       fetchCompanyData();
       fetchTimeSeriesData();
-      initializeDatabase();
     }
   }, [symbol]);
 
@@ -163,24 +162,6 @@ const DetailScreen = () => {
     }
   };
 
-  const initializeDatabase = async () => {
-    try {
-      await initDatabase();
-      await loadWatchlists();
-    } catch (error) {
-      console.error("Error initializing database:", error);
-    }
-  };
-
-  const loadWatchlists = async () => {
-    try {
-      const watchlistData = await watchlistService.getAllWatchlistItems();
-      setWatchlists(watchlistData);
-    } catch (error) {
-      console.error("Error loading watchlists:", error);
-    }
-  };
-
   const handleBookmarkPress = () => {
     setShowWatchlistModal(true);
   };
@@ -188,14 +169,12 @@ const DetailScreen = () => {
   const handleCreateWatchlist = async () => {
     if (newWatchlistName.trim()) {
       try {
-        const newWatchlist = await watchlistService.createWatchlistItem(
-          newWatchlistName.trim()
-        );
-        setWatchlists([...watchlists, newWatchlist]);
+        const newWatchlist = await createWatchlist(newWatchlistName.trim());
         setNewWatchlistName("");
         setSelectedWatchlistId(newWatchlist.id);
       } catch (error) {
         console.error("Error creating watchlist:", error);
+        Alert.alert("Error", "Failed to create watchlist");
       }
     }
   };
@@ -204,15 +183,18 @@ const DetailScreen = () => {
     if (!companyData) return;
 
     try {
-      await watchlistService.addCompanyToWatchlist({
+      await addCompanyToWatchlist({
         symbol: companyData.symbol,
         name: companyData.name,
         watchlistId: watchlistId,
       });
+
+      Alert.alert("Success", "Company added to watchlist!");
       setShowWatchlistModal(false);
       setSelectedWatchlistId(null);
     } catch (error) {
       console.error("Error adding company to watchlist:", error);
+      Alert.alert("Error", "Failed to add company to watchlist");
     }
   };
 

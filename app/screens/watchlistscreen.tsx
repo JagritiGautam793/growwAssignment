@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -8,8 +8,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { initDatabase } from "../db/client";
-import { watchlistService } from "../service/watchlist";
+import { useWatchlist } from "../contexts/WatchlistContext";
 
 interface Watchlist {
   id: number;
@@ -26,61 +25,15 @@ interface Company {
 }
 
 const WatchlistScreen = () => {
-  const [watchlists, setWatchlists] = useState<Watchlist[]>([]);
-  const [selectedWatchlist, setSelectedWatchlist] = useState<Watchlist | null>(
-    null
-  );
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [companiesLoading, setCompaniesLoading] = useState(false);
+  const {
+    watchlists,
+    companies,
+    selectedWatchlist,
+    loading,
+    setSelectedWatchlist,
+    removeCompanyFromWatchlist,
+  } = useWatchlist();
   const router = useRouter();
-
-  useEffect(() => {
-    initializeDatabase();
-  }, []);
-
-  useEffect(() => {
-    if (selectedWatchlist) {
-      loadCompaniesInWatchlist(selectedWatchlist.id);
-    }
-  }, [selectedWatchlist]);
-
-  const initializeDatabase = async () => {
-    try {
-      await initDatabase();
-      await loadWatchlists();
-    } catch (error) {
-      console.error("Error initializing database:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadWatchlists = async () => {
-    try {
-      const watchlistData = await watchlistService.getAllWatchlistItems();
-      setWatchlists(watchlistData);
-      if (watchlistData.length > 0) {
-        setSelectedWatchlist(watchlistData[0]);
-      }
-    } catch (error) {
-      console.error("Error loading watchlists:", error);
-    }
-  };
-
-  const loadCompaniesInWatchlist = async (watchlistId: number) => {
-    try {
-      setCompaniesLoading(true);
-      const companiesData = await watchlistService.getCompaniesInWatchlist(
-        watchlistId
-      );
-      setCompanies(companiesData);
-    } catch (error) {
-      console.error("Error loading companies:", error);
-    } finally {
-      setCompaniesLoading(false);
-    }
-  };
 
   const handleWatchlistPress = (watchlist: Watchlist) => {
     setSelectedWatchlist(watchlist);
@@ -92,10 +45,7 @@ const WatchlistScreen = () => {
 
   const handleRemoveCompany = async (companyId: number) => {
     try {
-      await watchlistService.removeCompanyFromWatchlist(companyId);
-      if (selectedWatchlist) {
-        loadCompaniesInWatchlist(selectedWatchlist.id);
-      }
+      await removeCompanyFromWatchlist(companyId);
     } catch (error) {
       console.error("Error removing company:", error);
     }
@@ -180,12 +130,7 @@ const WatchlistScreen = () => {
               <Text style={styles.sectionTitle}>
                 Companies in {selectedWatchlist.name}
               </Text>
-              {companiesLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#007AFF" />
-                  <Text style={styles.loadingText}>Loading companies...</Text>
-                </View>
-              ) : companies.length === 0 ? (
+              {companies.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>
                     No companies in this watchlist
