@@ -44,6 +44,9 @@ export async function GET(request: Request) {
     const response = await fetch(apiUrl);
     const data = await response.json();
 
+    // Check if data is available
+    // console.log(`Fetching ${timeframe} data for ${symbol}:`, { hasData: !!data[key] });
+
     if (!data[key]) {
       return new Response(
         JSON.stringify({ error: "Invalid API response", data }),
@@ -69,7 +72,9 @@ export async function GET(request: Request) {
 
     switch (timeframe) {
       case "1D":
-        cutoff.setDate(now.getDate() - 1);
+        // For 1D, show the most recent trading day's data - use special logic
+        // This will be handled after sorting to get the most recent date
+        cutoff = new Date(0); // Temporary - will be overridden below
         break;
       case "1W":
         cutoff.setDate(now.getDate() - 7);
@@ -88,9 +93,32 @@ export async function GET(request: Request) {
         break;
     }
 
-    const filtered = sorted.filter(
-      (item) => new Date(item.time) >= cutoff
-    );
+    let filtered: any[];
+    
+    if (timeframe === "1D") {
+      // For 1D, get the most recent trading day's data
+      // Find the most recent date in the data and show all entries from that date
+      if (sorted.length > 0) {
+        const mostRecentEntry = sorted[sorted.length - 1];
+        const mostRecentDate = mostRecentEntry.time.split(' ')[0]; // Get date part (YYYY-MM-DD)
+        
+        filtered = sorted.filter(item => item.time.startsWith(mostRecentDate));
+      } else {
+        filtered = [];
+      }
+    } else {
+      // For other timeframes, use the cutoff date
+      filtered = sorted.filter(
+        (item) => new Date(item.time) >= cutoff
+      );
+    }
+
+    // Log filtering results (uncomment for debugging)
+    // console.log(`Filtering ${timeframe} data:`, {
+    //   totalEntries: sorted.length,
+    //   filteredEntries: filtered.length,
+    //   cutoffDate: timeframe === "1D" ? "most recent trading day" : cutoff.toISOString()
+    // });
 
     return new Response(
       JSON.stringify({ symbol, timeframe, data: filtered }),
