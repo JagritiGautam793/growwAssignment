@@ -426,7 +426,12 @@ const HomeScreen = () => {
           onPress={() => handleViewAllPress(section.type)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.viewAllText, { color: C.surface }]}>
+          <Text
+            style={[
+              styles.viewAllText,
+              { color: isDark ? C.textPrimary : C.surface },
+            ]}
+          >
             View All
           </Text>
         </TouchableOpacity>

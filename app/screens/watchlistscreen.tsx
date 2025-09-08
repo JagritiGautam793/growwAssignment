@@ -1,3 +1,4 @@
+import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React from "react";
 import {
@@ -8,6 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeMode } from "../contexts/ThemeContext";
 import { useWatchlist } from "../contexts/WatchlistContext";
 import { getColors } from "../theme/colors";
@@ -38,6 +40,7 @@ const WatchlistScreen = () => {
   const router = useRouter();
   const { isDark } = useThemeMode();
   const C = getColors(isDark);
+  const insets = useSafeAreaInsets();
 
   const handleWatchlistPress = (watchlist: Watchlist) => {
     setSelectedWatchlist(watchlist);
@@ -81,14 +84,17 @@ const WatchlistScreen = () => {
           {item.name}
         </Text>
         <Text style={styles.addedDate}>
-          Added: {new Date(item.addedAt).toLocaleDateString()}
+          Added:{" "}
+          {item.addedAt
+            ? new Date(item.addedAt).toLocaleDateString()
+            : "Unknown"}
         </Text>
       </View>
       <TouchableOpacity
         style={styles.removeButton}
         onPress={() => handleRemoveCompany(item.id)}
       >
-        <Text style={styles.removeButtonText}>×</Text>
+        <MaterialIcons name="delete-outline" size={20} color="#fff" />
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -105,14 +111,22 @@ const WatchlistScreen = () => {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: C.background }]}>
+    <View
+      style={[
+        styles.container,
+        { paddingTop: insets.top, backgroundColor: C.background },
+      ]}
+    >
       <View
         style={[
           styles.header,
           { backgroundColor: C.surface, borderBottomColor: C.border },
         ]}
       >
-        <Text style={[styles.headerTitle, { color: C.textPrimary }]}>
+        <Text
+          style={[styles.headerTitle, { color: C.textPrimary }]}
+          numberOfLines={1}
+        >
           My Watchlists
         </Text>
       </View>
@@ -120,10 +134,11 @@ const WatchlistScreen = () => {
       {watchlists.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, { color: C.textSecondary }]}>
-            No watchlists created yet
+            No Watchlists Available
           </Text>
           <Text style={[styles.emptySubtext, { color: C.textMuted }]}>
-            Add companies to watchlists from the details screen
+            Create your first watchlist by adding companies from the stock
+            details screen
           </Text>
         </View>
       ) : (
@@ -131,9 +146,9 @@ const WatchlistScreen = () => {
           <View
             style={[styles.watchlistSection, { backgroundColor: C.surface }]}
           >
-            <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
+            {/* <Text style={[styles.sectionTitle, { color: C.textPrimary }]}>
               Watchlists
-            </Text>
+            </Text> */}
             <FlatList
               data={watchlists}
               renderItem={renderWatchlistItem}
@@ -154,7 +169,10 @@ const WatchlistScreen = () => {
               {companies.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <Text style={[styles.emptyText, { color: C.textSecondary }]}>
-                    No companies in this watchlist
+                    No Companies Added Yet
+                  </Text>
+                  <Text style={[styles.emptySubtext, { color: C.textMuted }]}>
+                    Search and add companies to start tracking their performance
                   </Text>
                 </View>
               ) : (
@@ -189,14 +207,21 @@ const WatchlistScreen = () => {
                         <Text
                           style={[styles.addedDate, { color: C.textMuted }]}
                         >
-                          Added: {new Date(item.addedAt).toLocaleDateString()}
+                          Added:{" "}
+                          {item.addedAt
+                            ? new Date(item.addedAt).toLocaleDateString()
+                            : "Unknown"}
                         </Text>
                       </View>
                       <TouchableOpacity
                         style={[styles.removeButton]}
                         onPress={() => handleRemoveCompany(item.id)}
                       >
-                        <Text style={styles.removeButtonText}>×</Text>
+                        <MaterialIcons
+                          name="delete-outline"
+                          size={20}
+                          color="#fff"
+                        />
                       </TouchableOpacity>
                     </TouchableOpacity>
                   )}
@@ -320,11 +345,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 10,
-  },
-  removeButtonText: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
   },
   emptyContainer: {
     flex: 1,

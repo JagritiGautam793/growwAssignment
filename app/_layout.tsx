@@ -7,6 +7,7 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ThemeProviderCustom, useThemeMode } from "./contexts/ThemeContext";
 import { WatchlistProvider } from "./contexts/WatchlistContext";
@@ -50,10 +51,12 @@ export default function RootLayout() {
   }
 
   return (
-    <WatchlistProvider>
-      <ThemeProviderCustom>
-        <NavigationRoot />
-      </ThemeProviderCustom>
-    </WatchlistProvider>
+    <SafeAreaProvider>
+      <WatchlistProvider>
+        <ThemeProviderCustom>
+          <NavigationRoot />
+        </ThemeProviderCustom>
+      </WatchlistProvider>
+    </SafeAreaProvider>
   );
 }
