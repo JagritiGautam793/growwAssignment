@@ -43,9 +43,8 @@ interface SearchResult {
 }
 
 const { width } = Dimensions.get("window");
-const CARD_WIDTH = (width - 50) / 2; // 50 for padding and gap (increased for better spacing)
+const CARD_WIDTH = (width - 50) / 2;
 
-// Utility function to format volume numbers
 const formatVolume = (volume: string): string => {
   const num = parseFloat(volume);
   if (num >= 1000000000) {
@@ -58,7 +57,7 @@ const formatVolume = (volume: string): string => {
   return num.toString();
 };
 
-// Debounce utility function
+// Debounce  function
 function debounce<T extends (...args: any[]) => any>(
   func: T,
   wait: number
@@ -104,7 +103,6 @@ const HomeScreen = () => {
     fetchData();
   }, []);
 
-  // Debounced search function
   const debouncedSearch = useCallback(
     debounce(async (query: string) => {
       if (query.trim().length < 2) {
@@ -158,12 +156,10 @@ const HomeScreen = () => {
 
   const handleSearchChange = (text: string) => {
     setSearchQuery(text);
-    // If user clears the search, hide results
     if (text.trim() === "") {
       setShowSearchResults(false);
       setSearchResults([]);
     }
-    // If user starts typing something completely different, hide old results
     if (text.length === 1) {
       setShowSearchResults(false);
       setSearchResults([]);
@@ -187,9 +183,6 @@ const HomeScreen = () => {
       duration: 200,
       useNativeDriver: false,
     }).start();
-
-    // DO NOT hide search results on blur - let user tap them
-    // Results will be hidden when user selects one or clears search
   };
 
   const renderStockCard = ({
@@ -450,8 +443,11 @@ const HomeScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" />
+      <View style={[styles.loaderContainer, { backgroundColor: C.background }]}>
+        <ActivityIndicator size="large" color={C.accent} />
+        <Text style={[styles.loadingText, { color: C.textMuted }]}>
+          Loading market data...
+        </Text>
       </View>
     );
   }
@@ -484,12 +480,16 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    fontWeight: "500",
   },
   mainContent: {
     flex: 1,
@@ -499,11 +499,9 @@ const styles = StyleSheet.create({
     paddingBottom: 100, // Extra padding for tab bar
   },
   appHeader: {
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E5EA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -513,14 +511,12 @@ const styles = StyleSheet.create({
   appTitle: {
     fontSize: 32,
     fontWeight: "800",
-    color: "#1C1C1E",
     marginBottom: 4,
     letterSpacing: -0.5,
   },
   appSubtitle: {
     fontSize: 16,
     fontWeight: "500",
-    color: "#8E8E93",
     letterSpacing: 0.2,
   },
   section: {
@@ -535,7 +531,6 @@ const styles = StyleSheet.create({
   sectionHeader: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#1C1C1E",
     textAlign: "left",
     letterSpacing: -0.3,
     flex: 1,
@@ -544,12 +539,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#007AFF",
   },
   viewAllText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#fff",
   },
   row: {
     justifyContent: "space-between",
@@ -557,7 +550,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   card: {
-    backgroundColor: "#fff",
     padding: 16,
     borderRadius: 16,
     shadowColor: "#000",
@@ -566,7 +558,6 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
     borderWidth: 1,
-    borderColor: "#e0e0e0",
     minHeight: 140,
     justifyContent: "space-between",
   },
@@ -576,7 +567,6 @@ const styles = StyleSheet.create({
   ticker: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#333",
     letterSpacing: 0.5,
     textAlign: "left",
   },
@@ -586,7 +576,6 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 24,
     fontWeight: "700",
-    color: "#333",
     letterSpacing: -0.5,
   },
   performanceSection: {
@@ -612,7 +601,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
   },
   volumeLabel: {
     fontSize: 12,
@@ -625,11 +613,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   searchContainer: {
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingVertical: 20,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E5EA",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -639,25 +625,21 @@ const styles = StyleSheet.create({
   searchInputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F2F2F7",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: "#E5E5EA",
   },
   searchIconContainer: {
     marginRight: 12,
   },
   searchIcon: {
     fontSize: 16,
-    color: "#8E8E93",
     fontWeight: "400",
   },
   searchInput: {
     flex: 1,
     fontSize: 16,
-    color: "#1C1C1E",
     paddingVertical: 0,
     margin: 0,
   },
@@ -665,9 +647,7 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   searchResultsContainer: {
-    backgroundColor: "#fff",
     borderBottomWidth: 0.5,
-    borderBottomColor: "#E5E5EA",
     maxHeight: 300,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
@@ -679,13 +659,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#F2F2F7",
-    backgroundColor: "#FAFAFA",
   },
   searchResultsTitle: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#8E8E93",
   },
   searchResultsList: {
     maxHeight: 250,
@@ -694,8 +671,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 18,
     borderBottomWidth: 0.5,
-    borderBottomColor: "#F2F2F7",
-    backgroundColor: "#fff",
     minHeight: 70,
   },
   searchResultContent: {
@@ -704,18 +679,15 @@ const styles = StyleSheet.create({
   searchResultSymbol: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#1C1C1E",
     marginBottom: 4,
   },
   searchResultName: {
     fontSize: 15,
-    color: "#48484A",
     marginBottom: 6,
     lineHeight: 20,
   },
   searchResultDetails: {
     fontSize: 13,
-    color: "#8E8E93",
     fontWeight: "500",
   },
 });

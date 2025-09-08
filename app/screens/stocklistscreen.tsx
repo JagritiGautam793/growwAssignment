@@ -24,7 +24,6 @@ interface StockData {
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 50) / 2;
 
-// Utility function to format volume numbers
 const formatVolume = (volume: string): string => {
   const num = parseFloat(volume);
   if (num >= 1000000000) {

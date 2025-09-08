@@ -156,12 +156,6 @@ const DetailScreen = () => {
 
       const data: TimeSeriesResponse = await response.json();
 
-      // Log data received (uncomment for debugging)
-      // console.log(`Received ${selectedTimeframe} data for ${symbol}:`, {
-      //   dataLength: data.data?.length || 0,
-      //   timeframe: data.timeframe
-      // });
-
       setTimeSeriesData(data.data || []);
     } catch (err) {
       console.error("Error fetching time series data:", err);
@@ -191,7 +185,13 @@ const DetailScreen = () => {
   };
 
   const handleAddToWatchlist = async (watchlistId: number) => {
-    if (!companyData) return;
+    if (!companyData || !companyData.symbol || !companyData.name) {
+      Alert.alert(
+        "Error",
+        "Company data is incomplete. Cannot add to watchlist."
+      );
+      return;
+    }
 
     try {
       await addCompanyToWatchlist({
@@ -344,32 +344,25 @@ const DetailScreen = () => {
       );
     }
 
-    // Prepare data for the chart - adjust based on timeframe
     const getChartDataPoints = () => {
       switch (selectedTimeframe) {
         case "1D":
-          // For 1D, show all intraday data (5-minute intervals)
           return timeSeriesData;
         case "1W":
-          // For 1W, show all available days (usually 4-7 days)
           return timeSeriesData;
         case "1M":
-          // For 1M, show last 20 days or all if less
           return timeSeriesData.length > 20
             ? timeSeriesData.slice(-20)
             : timeSeriesData;
         case "3M":
-          // For 3M, show last 30 days or all if less
           return timeSeriesData.length > 30
             ? timeSeriesData.slice(-30)
             : timeSeriesData;
         case "6M":
-          // For 6M, show last 50 days or all if less
           return timeSeriesData.length > 50
             ? timeSeriesData.slice(-50)
             : timeSeriesData;
         case "1Y":
-          // For 1Y, show last 80 days or all if less (better trend visibility)
           return timeSeriesData.length > 80
             ? timeSeriesData.slice(-80)
             : timeSeriesData;
@@ -380,7 +373,6 @@ const DetailScreen = () => {
 
     const chartDataPoints = getChartDataPoints();
 
-    // Validate data before rendering
     if (!chartDataPoints || chartDataPoints.length === 0) {
       return (
         <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
@@ -391,7 +383,6 @@ const DetailScreen = () => {
       );
     }
 
-    // Ensure all data points have valid close prices
     const validDataPoints = chartDataPoints.filter(
       (item) => item && typeof item.close === "number" && !isNaN(item.close)
     );
@@ -406,13 +397,11 @@ const DetailScreen = () => {
       );
     }
 
-    // Calculate price change for dynamic coloring
     const firstPrice = validDataPoints[0]?.close || 0;
     const lastPrice = validDataPoints[validDataPoints.length - 1]?.close || 0;
     const priceChange = lastPrice - firstPrice;
     const isPositive = priceChange >= 0;
 
-    // Dynamic colors based on price movement
     const lineColor = isPositive ? "#00C851" : "#FF4444"; // Green for up, Red for down
     const fillColor = isPositive
       ? `rgba(0, 200, 81, 0.1)`
@@ -422,7 +411,6 @@ const DetailScreen = () => {
       labels: validDataPoints.map((item, index) => {
         const date = new Date(item.time);
 
-        // Smart spacing to prevent label overlap - adjust based on data amount
         const totalPoints = validDataPoints.length;
         let labelInterval;
 
@@ -439,7 +427,6 @@ const DetailScreen = () => {
 
         if (!shouldShowLabel) return "";
 
-        // Format labels based on timeframe for better readability
         if (selectedTimeframe === "1D") {
           return date.toLocaleTimeString("en-US", {
             hour: "2-digit",
@@ -475,7 +462,6 @@ const DetailScreen = () => {
       ],
     };
 
-    // Calculate percentage change
     const percentChange =
       firstPrice !== 0 ? (priceChange / firstPrice) * 100 : 0;
 
@@ -546,12 +532,10 @@ const DetailScreen = () => {
               stroke: "transparent",
               strokeWidth: 0,
             },
-            // Enhanced label styling
             propsForLabels: {
               fontSize: 11,
               fontWeight: "500",
             },
-            // Better Y-axis formatting
             formatYLabel: (yValue: string) => {
               const value = parseFloat(yValue);
               if (value >= 1000) {
@@ -571,26 +555,37 @@ const DetailScreen = () => {
 
   if (loading) {
     return (
-      <View style={styles.loaderContainer}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>Loading company data...</Text>
+      <View style={[styles.loaderContainer, { backgroundColor: C.background }]}>
+        <ActivityIndicator size="large" color={C.accent} />
+        <Text style={[styles.loadingText, { color: C.textMuted }]}>
+          Loading company data...
+        </Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>Error</Text>
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={fetchCompanyData}>
-          <Text style={styles.retryButtonText}>Retry</Text>
+      <View style={[styles.errorContainer, { backgroundColor: C.background }]}>
+        <Text style={[styles.errorTitle, { color: C.textPrimary }]}>Error</Text>
+        <Text style={[styles.errorText, { color: C.textSecondary }]}>
+          {error}
+        </Text>
+        <TouchableOpacity
+          style={[styles.retryButton, { backgroundColor: C.accent }]}
+          onPress={fetchCompanyData}
+        >
+          <Text style={[styles.retryButtonText, { color: C.surface }]}>
+            Retry
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: C.inputBg }]}
           onPress={() => router.back()}
         >
-          <Text style={styles.backButtonText}>Go Back</Text>
+          <Text style={[styles.backButtonText, { color: C.textPrimary }]}>
+            Go Back
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -598,16 +593,20 @@ const DetailScreen = () => {
 
   if (!companyData) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorTitle}>No Data</Text>
-        <Text style={styles.errorText}>
+      <View style={[styles.errorContainer, { backgroundColor: C.background }]}>
+        <Text style={[styles.errorTitle, { color: C.textPrimary }]}>
+          No Data
+        </Text>
+        <Text style={[styles.errorText, { color: C.textSecondary }]}>
           No company data available for {symbol}
         </Text>
         <TouchableOpacity
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: C.inputBg }]}
           onPress={() => router.back()}
         >
-          <Text style={styles.backButtonText}>Go Back</Text>
+          <Text style={[styles.backButtonText, { color: C.textPrimary }]}>
+            Go Back
+          </Text>
         </TouchableOpacity>
       </View>
     );
@@ -877,7 +876,9 @@ const DetailScreen = () => {
                   style={[styles.addButton, { backgroundColor: C.accent }]}
                   onPress={handleCreateWatchlist}
                 >
-                  <Text style={styles.addButtonText}>Add</Text>
+                  <Text style={[styles.addButtonText, { color: "#ffffff" }]}>
+                    Add
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -944,7 +945,11 @@ const DetailScreen = () => {
                   }
                   disabled={!selectedWatchlistId}
                 >
-                  <Text style={styles.confirmButtonText}>Add to Watchlist</Text>
+                  <Text
+                    style={[styles.confirmButtonText, { color: "#ffffff" }]}
+                  >
+                    Add to Watchlist
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -958,35 +963,29 @@ const DetailScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   loaderContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: "#666",
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#f5f5f5",
     padding: 20,
   },
   errorTitle: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 10,
   },
   errorText: {
     fontSize: 16,
-    color: "#666",
     textAlign: "center",
     marginBottom: 20,
   },
@@ -996,9 +995,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     padding: 15,
     paddingTop: 30,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
   },
   backButton: {
     padding: 8,
@@ -1006,56 +1003,46 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: "#007AFF",
     fontWeight: "600",
   },
   symbol: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#333",
     flex: 1,
     textAlign: "center",
   },
   descriptionSection: {
-    backgroundColor: "#fff",
     padding: 15,
     marginBottom: 10,
   },
   descriptionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 10,
   },
   description: {
     fontSize: 14,
-    color: "#666",
     lineHeight: 20,
   },
   websiteSection: {
-    backgroundColor: "#fff",
     padding: 15,
     marginBottom: 10,
   },
   websiteTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 5,
   },
   website: {
     fontSize: 14,
-    color: "#007AFF",
   },
   section: {
-    backgroundColor: "#fff",
     marginBottom: 10,
     padding: 15,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 15,
   },
   infoItem: {
@@ -1064,22 +1051,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   infoLabel: {
     fontSize: 14,
-    color: "#666",
     flex: 1,
   },
   infoValue: {
     fontSize: 14,
-    color: "#333",
     fontWeight: "500",
     textAlign: "right",
     flex: 1,
   },
   analystSection: {
-    backgroundColor: "#fff",
     marginBottom: 20,
     padding: 15,
   },
@@ -1093,12 +1076,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 10,
     marginBottom: 10,
-    backgroundColor: "#f8f8f8",
     borderRadius: 8,
   },
   ratingLabel: {
     fontSize: 12,
-    color: "#666",
     marginBottom: 5,
   },
   ratingValue: {
@@ -1106,26 +1087,22 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   retryButton: {
-    backgroundColor: "#007AFF",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     marginBottom: 10,
   },
   retryButtonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
   timeframeContainer: {
-    backgroundColor: "#fff",
     padding: 15,
     marginBottom: 10,
   },
   chartTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 15,
   },
   timeframeButtons: {
@@ -1137,23 +1114,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: "#f0f0f0",
     minWidth: 40,
     alignItems: "center",
   },
-  timeframeButtonActive: {
-    backgroundColor: "#007AFF",
-  },
+  timeframeButtonActive: {},
   timeframeButtonText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#666",
   },
-  timeframeButtonTextActive: {
-    color: "#fff",
-  },
+  timeframeButtonTextActive: {},
   chartContainer: {
-    backgroundColor: "#fff",
     padding: 20,
     marginBottom: 10,
     borderRadius: 12,
@@ -1207,11 +1177,9 @@ const styles = StyleSheet.create({
   chartLoadingText: {
     marginTop: 10,
     fontSize: 14,
-    color: "#666",
   },
   chartErrorText: {
     fontSize: 14,
-    color: "#F44336",
     textAlign: "center",
     marginBottom: 10,
   },
@@ -1228,7 +1196,6 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#fff",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 25,
@@ -1237,7 +1204,6 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 20,
     textAlign: "center",
   },
@@ -1251,11 +1217,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     borderWidth: 2,
-    borderColor: "#e0e0e0",
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -1266,7 +1230,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   addButton: {
-    backgroundColor: "#007AFF",
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
@@ -1274,14 +1237,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   addButtonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
   watchlistSectionTitle: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#333",
     marginBottom: 15,
     marginTop: 5,
   },
@@ -1295,18 +1256,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
-  selectedWatchlistItem: {
-    backgroundColor: "#e3f2fd",
-  },
+  selectedWatchlistItem: {},
   watchlistItemText: {
     fontSize: 16,
-    color: "#333",
   },
   checkmark: {
     fontSize: 18,
-    color: "#007AFF",
     fontWeight: "bold",
   },
   modalActions: {
@@ -1315,32 +1271,26 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     flex: 1,
-    backgroundColor: "#f0f0f0",
     paddingVertical: 12,
     borderRadius: 8,
     marginRight: 10,
     alignItems: "center",
   },
   cancelButtonText: {
-    color: "#666",
     fontSize: 16,
     fontWeight: "600",
   },
   confirmButton: {
     flex: 1,
-    backgroundColor: "#007AFF",
     paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
   },
   confirmButtonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
-  disabledButton: {
-    backgroundColor: "#ccc",
-  },
+  disabledButton: {},
 });
 
 export default DetailScreen;

@@ -1,17 +1,28 @@
-// database.ts
+
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import * as SQLite from 'expo-sqlite';
 import { companies, watchlist } from './schema';
 
-// Open the database
-const expo = SQLite.openDatabaseSync('watchlist.db');
+// Initialize database with proper error handling for build process
+let expo: SQLite.SQLiteDatabase | null = null;
+let db: any = null;
 
-// Create drizzle instance
-export const db = drizzle(expo);
+try {
+  expo = SQLite.openDatabaseSync('watchlist.db');
+  db = drizzle(expo);
+} catch (error) {
+  // Fallback for build process - defer initialization
+  console.warn('Database initialization deferred until runtime');
+}
 
-// Initialize database with table creation
 export const initDatabase = async (): Promise<void> => {
   try {
+    // Initialize database if it wasn't properly created during build
+    if (!expo || !db) {
+      expo = SQLite.openDatabaseSync('watchlist.db');
+      db = drizzle(expo);
+    }
+    
     await db.run(`
       CREATE TABLE IF NOT EXISTS watchlist (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +47,14 @@ export const initDatabase = async (): Promise<void> => {
     console.error('Error initializing database:', error);
     throw error;
   }
+};
+
+// Export a function that ensures database is initialized
+export const getDb = () => {
+  if (!db) {
+    throw new Error('Database not initialized. Call initDatabase() first.');
+  }
+  return db;
 };
 
 export { companies, watchlist };
