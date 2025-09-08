@@ -10,7 +10,7 @@
         "buildType": "apk"
       },
       "env": {
-        "ALPHA_VANTAGE_API_KEY": "demo"
+        "ALPHA_VANTAGE_API_KEY": "OSUD8GPO5C6O6G5L"
       }
     },
     "production": {
@@ -18,7 +18,7 @@
         "buildType": "apk"
       },
       "env": {
-        "ALPHA_VANTAGE_API_KEY": "demo"
+        "ALPHA_VANTAGE_API_KEY": "OSUD8GPO5C6O6G5L"
       }
     }
   },
