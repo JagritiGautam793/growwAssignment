@@ -155,7 +155,14 @@ const DetailScreen = () => {
       }
 
       const data: TimeSeriesResponse = await response.json();
-      setTimeSeriesData(data.data);
+
+      // Log data received (uncomment for debugging)
+      // console.log(`Received ${selectedTimeframe} data for ${symbol}:`, {
+      //   dataLength: data.data?.length || 0,
+      //   timeframe: data.timeframe
+      // });
+
+      setTimeSeriesData(data.data || []);
     } catch (err) {
       console.error("Error fetching time series data:", err);
       setChartError(
@@ -337,56 +344,226 @@ const DetailScreen = () => {
       );
     }
 
-    // Prepare data for the chart
+    // Prepare data for the chart - adjust based on timeframe
+    const getChartDataPoints = () => {
+      switch (selectedTimeframe) {
+        case "1D":
+          // For 1D, show all intraday data (5-minute intervals)
+          return timeSeriesData;
+        case "1W":
+          // For 1W, show all available days (usually 4-7 days)
+          return timeSeriesData;
+        case "1M":
+          // For 1M, show last 20 days or all if less
+          return timeSeriesData.length > 20
+            ? timeSeriesData.slice(-20)
+            : timeSeriesData;
+        case "3M":
+          // For 3M, show last 30 days or all if less
+          return timeSeriesData.length > 30
+            ? timeSeriesData.slice(-30)
+            : timeSeriesData;
+        case "6M":
+          // For 6M, show last 50 days or all if less
+          return timeSeriesData.length > 50
+            ? timeSeriesData.slice(-50)
+            : timeSeriesData;
+        case "1Y":
+          // For 1Y, show last 80 days or all if less (better trend visibility)
+          return timeSeriesData.length > 80
+            ? timeSeriesData.slice(-80)
+            : timeSeriesData;
+        default:
+          return timeSeriesData.slice(-10);
+      }
+    };
+
+    const chartDataPoints = getChartDataPoints();
+
+    // Validate data before rendering
+    if (!chartDataPoints || chartDataPoints.length === 0) {
+      return (
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <Text style={[styles.chartErrorText, { color: C.textSecondary }]}>
+            No chart data available for {selectedTimeframe}
+          </Text>
+        </View>
+      );
+    }
+
+    // Ensure all data points have valid close prices
+    const validDataPoints = chartDataPoints.filter(
+      (item) => item && typeof item.close === "number" && !isNaN(item.close)
+    );
+
+    if (validDataPoints.length === 0) {
+      return (
+        <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+          <Text style={[styles.chartErrorText, { color: C.textSecondary }]}>
+            Invalid price data for {selectedTimeframe}
+          </Text>
+        </View>
+      );
+    }
+
+    // Calculate price change for dynamic coloring
+    const firstPrice = validDataPoints[0]?.close || 0;
+    const lastPrice = validDataPoints[validDataPoints.length - 1]?.close || 0;
+    const priceChange = lastPrice - firstPrice;
+    const isPositive = priceChange >= 0;
+
+    // Dynamic colors based on price movement
+    const lineColor = isPositive ? "#00C851" : "#FF4444"; // Green for up, Red for down
+    const fillColor = isPositive
+      ? `rgba(0, 200, 81, 0.1)`
+      : `rgba(255, 68, 68, 0.1)`;
+
     const chartData = {
-      labels: timeSeriesData
-        .slice(-10) // Show last 10 data points for better readability
-        .map((item) => {
-          const date = new Date(item.time);
-          return selectedTimeframe === "1D"
-            ? date.toLocaleTimeString("en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : date.toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              });
-        }),
+      labels: validDataPoints.map((item, index) => {
+        const date = new Date(item.time);
+
+        // Smart spacing to prevent label overlap - adjust based on data amount
+        const totalPoints = validDataPoints.length;
+        let labelInterval;
+
+        if (totalPoints <= 5) {
+          labelInterval = 1; // Show all labels for small datasets
+        } else if (totalPoints <= 20) {
+          labelInterval = Math.max(1, Math.floor(totalPoints / 4)); // ~4 labels
+        } else {
+          labelInterval = Math.max(1, Math.floor(totalPoints / 5)); // ~5 labels for larger datasets
+        }
+
+        const shouldShowLabel =
+          index % labelInterval === 0 || index === totalPoints - 1;
+
+        if (!shouldShowLabel) return "";
+
+        // Format labels based on timeframe for better readability
+        if (selectedTimeframe === "1D") {
+          return date.toLocaleTimeString("en-US", {
+            hour: "2-digit",
+            minute: "2-digit",
+          });
+        } else if (selectedTimeframe === "1W") {
+          return date.toLocaleDateString("en-US", {
+            weekday: "short",
+            day: "numeric",
+          });
+        } else if (selectedTimeframe === "6M" || selectedTimeframe === "1Y") {
+          return date.toLocaleDateString("en-US", {
+            month: "short",
+            year: "2-digit",
+          });
+        } else {
+          return date.toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+        }
+      }),
       datasets: [
         {
-          data: timeSeriesData.slice(-10).map((item) => item.close),
-          color: (opacity = 1) => `rgba(0, 122, 255, ${opacity})`,
-          strokeWidth: 2,
+          data: validDataPoints.map((item) => item.close),
+          color: (opacity = 1) =>
+            `${lineColor}${Math.floor(opacity * 255)
+              .toString(16)
+              .padStart(2, "0")}`,
+          strokeWidth: 3, // Slightly thicker line for better visibility
+          withDots: selectedTimeframe === "1W", // Show dots only for weekly view
         },
       ],
     };
 
+    // Calculate percentage change
+    const percentChange =
+      firstPrice !== 0 ? (priceChange / firstPrice) * 100 : 0;
+
     return (
       <View style={[styles.chartContainer, { backgroundColor: C.surface }]}>
+        {/* Price Summary Header */}
+        <View style={styles.priceHeader}>
+          <Text style={[styles.currentPrice, { color: C.textPrimary }]}>
+            ${lastPrice.toFixed(2)}
+          </Text>
+          <View style={styles.changeContainer}>
+            <Text
+              style={[
+                styles.priceChange,
+                { color: isPositive ? "#00C851" : "#FF4444" },
+              ]}
+            >
+              {isPositive ? "+" : ""}${priceChange.toFixed(2)} (
+              {isPositive ? "+" : ""}
+              {percentChange.toFixed(2)}%)
+            </Text>
+            <View
+              style={[
+                styles.timeframeLabel,
+                {
+                  backgroundColor: isPositive
+                    ? "rgba(0, 200, 81, 0.1)"
+                    : "rgba(255, 68, 68, 0.1)",
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  {
+                    color: isPositive ? "#00C851" : "#FF4444",
+                    fontSize: 12,
+                    fontWeight: "600",
+                  },
+                ]}
+              >
+                {selectedTimeframe}
+              </Text>
+            </View>
+          </View>
+        </View>
+
         <LineChart
           data={chartData}
-          width={width - 30}
-          height={220}
+          width={width - 40}
+          height={240}
           chartConfig={{
             backgroundColor: C.surface,
             backgroundGradientFrom: C.surface,
             backgroundGradientTo: C.surface,
             decimalPlaces: 2,
-            color: () => C.accent,
+            color: () => lineColor,
             labelColor: () => C.textMuted,
             style: {
               borderRadius: 16,
             },
             propsForDots: {
-              r: "2",
+              r: selectedTimeframe === "1W" ? "4" : "0", // Larger dots for weekly, hidden for others
               strokeWidth: "2",
-              stroke: C.accent,
+              stroke: lineColor,
+              fill: lineColor,
             },
-            propsForBackgroundLines: { stroke: C.border },
+            propsForBackgroundLines: {
+              stroke: "transparent",
+              strokeWidth: 0,
+            },
+            // Enhanced label styling
+            propsForLabels: {
+              fontSize: 11,
+              fontWeight: "500",
+            },
+            // Better Y-axis formatting
+            formatYLabel: (yValue: string) => {
+              const value = parseFloat(yValue);
+              if (value >= 1000) {
+                return `$${(value / 1000).toFixed(1)}K`;
+              }
+              return `$${value.toFixed(0)}`;
+            },
           }}
           bezier
           style={styles.chart}
+          withHorizontalLines={false}
+          withVerticalLines={false}
         />
       </View>
     );
@@ -977,13 +1154,55 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     backgroundColor: "#fff",
-    padding: 15,
+    padding: 20,
     marginBottom: 10,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
     alignItems: "center",
   },
   chart: {
     marginVertical: 8,
     borderRadius: 16,
+  },
+  priceHeader: {
+    marginBottom: 12,
+    paddingHorizontal: 8,
+    alignItems: "center", // Center align the entire header
+  },
+  priceInfo: {
+    alignItems: "center", // Center align price info
+    width: "100%",
+  },
+  currentPrice: {
+    fontSize: 22, // Reduced from 28
+    fontWeight: "700",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  changeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center", // Center the change info
+    gap: 10,
+  },
+  priceChange: {
+    fontSize: 14, // Reduced from 16
+    fontWeight: "600",
+  },
+  timeframeLabel: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    minWidth: 32,
+    alignItems: "center",
+    justifyContent: "center",
   },
   chartLoadingText: {
     marginTop: 10,
