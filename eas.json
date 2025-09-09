@@ -1,0 +1,28 @@
+{
+  "cli": {
+    "version": ">= 5.9.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "ALPHA_VANTAGE_API_KEY": "OSUD8GPO5C6O6G5L"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "ALPHA_VANTAGE_API_KEY": "OSUD8GPO5C6O6G5L"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

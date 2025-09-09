@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useThemeMode } from "../contexts/ThemeContext";
+import { stockDataService } from "../services";
 import { getColors } from "../theme/colors";
 
 interface StockData {
@@ -24,7 +25,6 @@ interface StockData {
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = (width - 50) / 2;
 
-// Utility function to format volume numbers
 const formatVolume = (volume: string): string => {
   const num = parseFloat(volume);
   if (num >= 1000000000) {
@@ -60,10 +60,11 @@ const StockListScreen = () => {
           setLoadingMore(true);
         }
 
-        const response = await fetch(
-          `/stockdata?type=${type}&page=${pageNum}&limit=${itemsPerPage}`
-        );
-        const data = await response.json();
+        const data = await stockDataService.getStockData({
+          type: type,
+          page: pageNum,
+          limit: itemsPerPage,
+        });
 
         const stockData =
           type === "gainer" ? data.gainers || [] : data.losers || [];
