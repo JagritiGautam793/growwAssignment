@@ -1,339 +1,392 @@
-# Stock Trading App - Groww Assignment 
+# Stock Trading App - Groww Assignment
 
-## 📱 Google Drive Link
+## 📱 Application Demo
 
 **[🔗 Download APK & View Demo - Google Drive](https://drive.google.com/drive/folders/1W84U7bnJXRuQXl-Fa9afANKCVWX2-IQO?usp=sharing)**
 
-_Contains: APK file, screenshots, and demo video_
+Contains: APK file, screenshots, and demo video
 
-A React Native application for viewing stock market data using Alpha Vantage API.
-
-## What's Implemented
-
-### Screens
-
-- **Home Screen**: Displays top gainers/losers and search functionality
-- **Detail Screen**: Shows stock price charts and company information
-- **Watchlist Screen**: Manages saved stocks
-- **Stock List Screen**: Shows filtered stock lists
-
-### Features
-
-- Stock search with debounced input
-- Price charts with multiple timeframes (1D, 1W, 1M, 3M, 6M, 1Y)
-- Add/remove stocks from watchlist
-- Light/dark theme toggle
-- SQLite database for local storage
-
-### Technology Stack
-
-- React Native with Expo SDK 53
-- Expo Router for navigation
-- TypeScript
-- SQLite with Drizzle ORM
-- react-native-chart-kit for charts
-- Alpha Vantage API for market data
+A React Native stock market application built with Expo, featuring market data visualization, interactive charts, and portfolio management using Alpha Vantage API.
 
 ---
 
-## Backend Workflow
+## Table of Contents
 
-### API Architecture
+- [Features](#features)
+- [Technology Stack](#technology-stack)
+- [System Architecture](#system-architecture)
+- [Data Flow](#data-flow)
+- [Frontend Workflow](#frontend-workflow)
+- [Backend Workflow](#backend-workflow)
+- [Performance Optimizations](#performance-optimizations)
+- [Installation Guide](#installation-guide)
+- [Project Structure](#project-structure)
+- [API Integration](#api-integration)
+- [Database Implementation](#database-implementation)
+- [Security Considerations](#security-considerations)
 
-The application implements a Backend-for-Frontend (BFF) pattern using Expo's API route handlers instead of making direct API calls from the frontend.
+---
 
-### Why Use Expo API Route Handlers?
+## Features
 
-**API Key Security**
+### Core Functionality
 
-- Problem: Exposing API keys in frontend code makes them visible to anyone
-- Solution: API keys are stored as environment variables on the server
-- Implementation: All Alpha Vantage API calls are made server-side
+- _Market Data Display_: Top gainers/losers from Alpha Vantage API
+- _Stock Search_: Debounced search with 500ms delay, minimum 2 characters
+- _Interactive Charts_: 6 timeframes (1D, 1W, 1M, 3M, 6M, 1Y) using LineChart
+- _Portfolio Management_: Create and manage multiple watchlists with SQLite storage
+- _Infinite Scroll Pagination_: Load more stocks with 20 items per page
+- _Theme Support_: Manual light/dark theme toggle
 
-**Data Transformation**
+### User Interface
 
-- Response Normalization: Raw API responses are cleaned and transformed
-- Field Mapping: Complex API response structures are simplified for frontend consumption
-- Data Filtering: Only necessary data is sent to the client
+- _Tab Navigation_: Home screen (market data) and Watchlist screen
+- _Modal Navigation_: Stock detail view and paginated stock lists
+- _Loading States_: Activity indicators during data fetching
+- _Error Handling_: User-friendly error messages with retry buttons
 
-### API Endpoints
+---
 
-#### 1. Company Overview API
+## Technology Stack
 
-**Endpoint**: `GET /company`
+### Frontend Framework
 
-**Purpose**: Retrieves company information and financial metrics for a stock symbol.
+- _React Native_ 0.79.6 with Expo SDK 53
+- _TypeScript_ 5.8.3 with strict mode enabled
+- _Expo Router_ 5.1.5 for file-based navigation
+- _React Native Chart Kit_ 6.12.0 for data visualization
 
-**Parameters**:
+### Data Management
 
-- `symbol` (required): Stock ticker symbol
+- _Alpha Vantage API_ for market data
+- _SQLite_ with Expo SQLite 15.2.14 for local storage
+- _Drizzle ORM_ 0.44.5 for database operations
+- _React Context API_ for state management
 
-**Response Structure**:
+### Development Environment
 
-```json
-{
-  "symbol": "AAPL",
-  "name": "Apple Inc",
-  "description": "Company description...",
-  "sector": "Technology",
-  "industry": "Consumer Electronics",
-  "marketCap": "3000000000000",
-  "peRatio": "28.5",
-  "eps": "6.05",
-  "52WeekHigh": "199.62",
-  "52WeekLow": "164.08"
-}
-```
+- _ESLint_ 9.25.0 with Expo configuration
+- _Drizzle Kit_ 0.31.4 for database schema management
+- _TypeScript_ for type safety and development experience
 
-#### 2. Stock Search API
+---
 
-**Endpoint**: `GET /search`
+## System Architecture
 
-**Purpose**: Searches for stocks based on keywords.
+### Application Pattern
 
-**Parameters**:
+_Client-Side Service Module Pattern_: All API calls are made directly from the client using service modules in services.ts. No backend server - pure React Native application with local SQLite storage.
 
-- `keywords` (required): Search term
+### Service Module Organization
 
-**Response Structure**:
+**Five service modules in services.ts:**
 
-```json
-{
-  "results": [
-    {
-      "symbol": "AAPL",
-      "name": "Apple Inc",
-      "type": "Equity",
-      "region": "United States",
-      "matchScore": 0.8571
-    }
-  ]
-}
-```
+- _stockDataService_: Market data retrieval with client-side pagination
+- _searchService_: Symbol search with debounced input
+- _timeSeriesService_: Historical price data with timeframe filtering
+- _companyService_: Company fundamentals and financial metrics
+- _healthService_: Application status monitoring
 
-#### 3. Stock Data API
+### Navigation Architecture
 
-**Endpoint**: `GET /stockdata`
+Tab Navigation (app/(tabs)/)
+├── index.tsx → homescreen.tsx (Market overview & search)
+└── explore.tsx → watchlistscreen.tsx (Portfolio management)
 
-**Purpose**: Retrieves top gaining and losing stocks.
+Modal Screens (app/screens/)
+├── detailscreen.tsx (Stock details & charts)
+└── stocklistscreen.tsx (Paginated stock lists)
 
-**Parameters**:
+### State Management Strategy
 
-- `type` (optional): Filter by "gainer" or "loser"
-- `page` (optional): Page number for pagination
-- `limit` (optional): Number of results per page
+- _React Context_: ThemeContext (theme toggle) + WatchlistContext (portfolio state)
+- _Local State_: Component-level useState for UI states and API data
+- _Persistent Storage_: SQLite for watchlists, in-memory for theme preferences
 
-**Response Structure**:
+---
 
-```json
-{
-  "gainers": [
-    {
-      "ticker": "NVDA",
-      "price": "875.42",
-      "change_amount": "+45.23",
-      "change_percentage": "+5.45%",
-      "volume": "15234567"
-    }
-  ],
-  "losers": [...]
-}
-```
+## Data Flow
 
-#### 4. Time Series Data API
+### Client-Side Data Processing
 
-**Endpoint**: `GET /timeseries`
+Since this is a _client-side only application_, all data processing happens on the device:
 
-**Purpose**: Retrieves historical price data for different timeframes.
+_API Request Flow:_
 
-**Parameters**:
+Component → Service Function → fetch() → Alpha Vantage → JSON Response → Data Mapping → setState()
 
-- `symbol` (required): Stock ticker symbol
-- `timeframe` (optional): "1D", "1W", "1M", "3M", "6M", "1Y"
+_Request Processing Steps:_
 
-**Timeframe Logic**:
-| Timeframe | Data Source | Interval | Filtering Logic |
-|-----------|-------------|----------|-----------------|
-| 1D | TIME_SERIES_INTRADAY | 5-minute | Most recent trading day only |
-| 1W | TIME_SERIES_DAILY | Daily | Last 7 days |
-| 1M | TIME_SERIES_DAILY | Daily | Last 30 days |
-| 3M | TIME_SERIES_DAILY | Daily | Last 90 days |
-| 6M | TIME_SERIES_DAILY | Daily | Last 180 days |
-| 1Y | TIME_SERIES_DAILY | Daily | Last 365 days |
+1. _HTTP Request_: fetch() call with hardcoded API_KEY
+2. _Response Validation_: if (!response.ok) throws error with status code
+3. _JSON Parsing_: await response.json()
+4. _Data Validation_: Basic checks like if (!data.top_gainers)
+5. _Data Transformation_: mapStockData() transforms API fields to TypeScript interface
+6. _Error Handling_: try/catch blocks with console.error() and throw new Error()
 
-**Response Structure**:
+_Local Database Flow:_
 
-```json
-{
-  "symbol": "AAPL",
-  "timeframe": "1D",
-  "data": [
-    {
-      "time": "2024-01-15 09:30:00",
-      "open": 185.25,
-      "high": 186.4,
-      "low": 184.9,
-      "close": 185.8,
-      "volume": 1234567
-    }
-  ]
-}
-```
+User Action → watchlistService function → getDb() → Drizzle Query → SQLite
+
+_Database Operations:_
+
+1. _Initialization_: CREATE TABLE IF NOT EXISTS SQL statements in initDatabase()
+2. _Connection_: SQLite.openDatabaseSync('watchlist.db')
+3. _Queries_: Drizzle ORM methods like db.select().from(watchlist)
+4. _Error Handling_: Basic try/catch with console.error() logging
 
 ---
 
 ## Frontend Workflow
 
-### Application Architecture
+### Component-Level Implementation
 
-Component-based architecture with context-driven state management using Expo Router for file-based routing.
+_Screen Components and Their Responsibilities:_
 
-### Navigation Structure
+**Home Screen (homescreen.tsx):**
 
-```
-Tab Navigator
-├── Home (index.tsx → homescreen.tsx)
-└── Watchlist (explore.tsx → watchlistscreen.tsx)
+- _Data Fetching_: useEffect(() => { fetchData() }) calls stockDataService.getStockData() on mount
+- _Search Implementation_: const debouncedSearch = useCallback(debounce(async (query) => {...}, 500))
+- _State Management_: useState for gainers, losers, loading, searchResults, searchLoading
+- _Navigation_: router.push('/screens/detailscreen?symbol=${symbol}') and stocklist navigation
 
-Modal Screens
-├── detailscreen.tsx
-└── stocklistscreen.tsx
-```
+**Detail Screen (detailscreen.tsx):**
 
-### State Management
+- _Parallel Data Loading_: fetchCompanyData() and fetchTimeSeriesData() called simultaneously in same useEffect
+- _Chart Rendering_: <LineChart> component from react-native-chart-kit
+- _Watchlist Integration_: const { addCompanyToWatchlist } = useWatchlist() hook
+- _Timeframe Selection_: const timeframes = ["1D", "1W", "1M", "3M", "6M", "1Y"] array
 
-**Theme Context** (`contexts/ThemeContext.tsx`)
+**Stock List Screen (stocklistscreen.tsx):**
 
-- Manages light/dark theme state
-- Provides `getColors()` function for theme-aware styling
-- Persists theme preference
+- _Infinite Scroll_: <FlatList onEndReached={handleLoadMore} onEndReachedThreshold={0.1}>
+- _Pagination Logic_: fetchStocks(pageNum, isLoadMore) with page increment
+- _Load More Prevention_: if (!loadingMore && hasMore) condition check
+- _Data Appending_: setStocks(prev => [...prev, ...stockData]) for seamless scrolling
 
-**Watchlist Context** (`contexts/WatchlistContext.tsx`)
+**Watchlist Screen (watchlistscreen.tsx):**
 
-- Manages watchlist state and operations
-- Provides CRUD operations for watchlists
-- Interfaces with SQLite database via Drizzle ORM
-
-### Screen Workflows
-
-#### Home Screen (`screens/homescreen.tsx`)
-
-1. Fetches top gainers/losers from `/stockdata` endpoint
-2. Implements debounced search (300ms delay) using `/search` endpoint
-3. Displays color-coded stock cards (green for gainers, red for losers)
-4. Navigates to detail screen or stock list screen on selection
-
-#### Detail Screen (`screens/detailscreen.tsx`)
-
-1. Receives stock symbol via navigation params
-2. Fetches company data from `/company` endpoint
-3. Fetches time series data from `/timeseries` endpoint
-4. Renders price chart using `react-native-chart-kit`
-5. Implements timeframe switching (1D, 1W, 1M, 3M, 6M, 1Y)
-6. Provides watchlist add/remove functionality
-7. Handles chart data optimization based on selected timeframe
-
-#### Watchlist Screen (`screens/watchlistscreen.tsx`)
-
-1. Loads watchlists from SQLite database
-2. Displays saved stocks with current prices
-3. Provides delete functionality for watchlist items
-4. Navigates to detail screen when stock is selected
-
-### Data Flow
-
-```
-User Interaction → React Component → Context/Hook → API Route Handler → Alpha Vantage API → Response Processing → State Update → UI Re-render
-```
-
-### Chart Implementation
-
-- Uses `react-native-chart-kit` for line charts
-- Implements dynamic label spacing to prevent overcrowding
-- Color-codes chart lines based on price movement (green/red)
-- Filters data points based on timeframe for optimal performance
-- Handles different date/time formatting per timeframe
-
-### Database Operations
-
-- Uses SQLite with Drizzle ORM for local data persistence
-- Stores watchlist data with company information
-- Implements CRUD operations through `service/watchlist.ts`
+- _Context Integration_: Uses useWatchlist() hook for CRUD operations
+- _List Rendering_: <FlatList> for watchlists and companies
+- _Navigation_: Direct navigation to stock details on item press
 
 ---
 
-## Installation
+## Backend Workflow
 
-1. Install dependencies:
+### Client-Side Data Processing
 
-   ```bash
-   npm install
-   ```
+Since this is a _client-side only application_, all "backend" operations happen on the device:
 
-2. Set up environment variables:
+_API Request Processing:_
 
-   ```bash
+User Action → Component Event → Service Function → fetch() → Alpha Vantage API → JSON Response → Data Mapping → Component State Update → UI Re-render
+
+_Service Module Operations (Actual Implementation):_
+
+1. _stockDataService.getStockData()_: fetch(BASE_URL + "?function=TOP_GAINERS_LOSERS"), applies client-side pagination with slice()
+2. _searchService.searchSymbols()_: fetch(BASE_URL + "?function=SYMBOL_SEARCH") with keyword encoding
+3. _timeSeriesService.getTimeSeries()_: fetch() calls TIME_SERIES_INTRADAY (1D) or TIME_SERIES_DAILY (1W-1Y)
+4. _companyService.getCompanyData()_: fetch(BASE_URL + "?function=OVERVIEW") for company fundamentals
+5. _healthService.getStatus()_: Returns { status: "UP" } object (no API call)
+
+_Local Database Workflow:_
+
+User Action → Context Method → watchlistService Function → getDb() → Drizzle Query → SQLite Database → Result → Context State Update → UI Refresh
+
+_Database Transaction Flow:_
+
+1. _Connection_: SQLite.openDatabaseSync('watchlist.db') creates/opens database
+2. _Initialization_: initDatabase() runs CREATE TABLE IF NOT EXISTS statements
+3. _CRUD Operations_: Drizzle ORM methods (db.select(), db.insert(), db.delete())
+4. _Error Handling_: try/catch blocks with console.error() logging
+5. _State Sync_: Context providers update component state after database operations
+
+---
+
+## Performance Optimizations
+
+### Search Implementation
+
+- _Debounced Input_: 500ms delay reduces API calls significantly
+- _Character Threshold_: Prevents API calls for queries under 2 characters
+- _Result Management_: Automatic clearing for short queries
+
+### Pagination System
+
+- _Client-Side Pagination_: stockDataService.getStockData({ page, limit }) with slice() operation
+- _Page Management_: const page = options.page || 1; const limit = options.limit || 20
+- _Data Slicing_: sourceData.slice(startIndex, endIndex) for 20 items per page
+- _Pagination Metadata_: Returns { page, limit, total, hasMore } object
+- _State Tracking_: hasMore boolean based on endIndex < sourceData.length
+
+### List Rendering
+
+- _Infinite Scroll_: FlatList onEndReached={handleLoadMore} with 0.1 threshold
+- _Load More Logic_: if (!loadingMore && hasMore) prevents duplicate requests
+- _Data Appending_: setStocks(prev => [...prev, ...stockData]) for seamless scrolling
+- _Loading States_: Separate loading vs loadingMore indicators
+
+### Chart Optimization
+
+- _Client-Side Filtering_: Timeframe data processing without additional API calls
+- _Responsive Design_: Dynamic chart sizing based on screen dimensions
+- _Conditional Rendering_: Chart updates only when timeframe changes
+
+### Memory Management
+
+- _Component Cleanup_: useEffect cleanup functions prevent memory leaks
+- _Context Optimization_: useMemo for context values to prevent re-renders
+- _State Management_: Local state cleared appropriately on component unmount
+
+---
+
+## Installation Guide
+
+### Prerequisites
+
+- Node.js 18+ and npm
+- Expo CLI: npm install -g @expo/cli
+- Android Studio (Android) or Xcode (iOS)
+
+### Setup Instructions
+
+1. _Clone and Install Dependencies:_
+
+bash
+git clone <repository-url>
+cd growwass
+npm install
+
+2. _Configure Alpha Vantage API Key:_
+
+_Option A: Direct Configuration (Recommended for testing)_
+
+typescript
+// In app/services.ts, line 1
+const API_KEY = "your_alpha_vantage_api_key_here";
+
+_Option B: Environment Variables_
+
+bash
+
 # Create .env file
-ALPHA_VANTAGE_API_KEY=your_api_key_here
-```
 
-3. Start the app:
+EXPO_PUBLIC_ALPHA_VANTAGE_API_KEY=your_api_key_here
 
-```bash
+3. _Start Development Server:_
+
+bash
 npm start
-```
 
-4. Run on device:
+# Then press 'a' for Android, 'i' for iOS, or scan QR code
 
-```bash
-# iOS
-npm run ios
+### Production Build
 
-# Android
-npm run android
-```
+bash
+npm install -g @expo/eas-cli
+eas build --platform android
+
+---
 
 ## Project Structure
 
-```
-app/
-├── (api)/              # API route handlers
-│   ├── company+api.ts  # Company overview endpoint
-│   ├── search+api.ts   # Stock search endpoint
-│   ├── stockdata+api.ts # Top gainers/losers endpoint
-│   ├── timeseries+api.ts # Historical data endpoint
-│   └── health+api.ts   # Health check endpoint
-├── (tabs)/             # Tab navigation screens
-├── components/         # Reusable components
-├── contexts/           # React contexts (Theme, Watchlist)
-├── db/                 # Database schema and client
-├── screens/            # Screen components
-├── service/            # Business logic (watchlist operations)
-└── theme/              # Theme configuration
-```
+growwass/
+├── app/
+│ ├── (tabs)/ # Tab navigation
+│ │ ├── index.tsx # Home tab → homescreen.tsx
+│ │ └── explore.tsx # Watchlist tab → watchlistscreen.tsx
+│ ├── components/ # Custom components
+│ │ └── ThemeToggleCompact.tsx
+│ ├── contexts/ # React Context providers
+│ │ ├── ThemeContext.tsx # Theme state management
+│ │ └── WatchlistContext.tsx # Watchlist operations
+│ ├── db/ # Database layer
+│ │ ├── client.ts # SQLite connection
+│ │ └── schema.ts # Drizzle schema definitions
+│ ├── screens/ # Screen components
+│ │ ├── homescreen.tsx # Market data & search
+│ │ ├── detailscreen.tsx # Stock details & charts
+│ │ ├── stocklistscreen.tsx # Paginated lists
+│ │ └── watchlistscreen.tsx # Portfolio management
+│ ├── service/ # Business logic
+│ │ └── watchlist.ts # Watchlist CRUD operations
+│ ├── services.ts # API service modules
+│ └── theme/ # Theme configuration
+├── components/ # Expo default components
+├── constants/ # App constants
+└── assets/ # Images and fonts
+
+---
+
+## API Integration
+
+### Alpha Vantage Endpoints
+
+1. _TOP_GAINERS_LOSERS_: Market movers data for home screen
+2. _SYMBOL_SEARCH_: Stock symbol lookup for search functionality
+3. _TIME_SERIES_INTRADAY_: 5-minute intervals for 1D charts
+4. _TIME_SERIES_DAILY_: Daily data for 1W-1Y timeframes
+5. _OVERVIEW_: Company fundamentals and financial metrics
+
+### Data Processing Implementation
+
+- _Type Safety_: TypeScript interfaces for all API responses
+- _Error Handling_: HTTP status codes and API error message parsing
+- _Data Transformation_: Consistent field mapping across service modules
+- _Rate Limiting_: Graceful handling of Alpha Vantage API limits
+
+---
+
+## Database Implementation
+
+### SQLite Schema Design
+
+_Table Definitions:_
+
+sql
+-- Watchlists
+CREATE TABLE watchlist (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+name TEXT NOT NULL,
+created_at TEXT DEFAULT datetime('now')
+);
+
+-- Companies in watchlists
+CREATE TABLE companies (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+symbol TEXT NOT NULL,
+name TEXT NOT NULL,
+watchlist_id INTEGER NOT NULL,
+added_at TEXT DEFAULT datetime('now'),
+FOREIGN KEY (watchlist_id) REFERENCES watchlist(id) ON DELETE CASCADE
+);
+
+### Database Operations
+
+- _Create_: New watchlists and company entries
+- _Read_: Fetch watchlists with associated companies
+- _Delete_: Cascade deletion maintains referential integrity
+- _Indexing_: Primary keys and foreign keys for query optimization
+
+---
 
 ## Security Considerations
 
-### Environment Variables
+### API Key Management
 
-- `ALPHA_VANTAGE_API_KEY`: Alpha Vantage API key (required)
-- Fallback to demo data when API fails
+- _Development_: Direct configuration in services.ts
+- _Production_: Environment variables with EXPO*PUBLIC* prefix
+- _Rate Limiting_: Alpha Vantage free tier (5 requests/minute, 500/day)
 
-### Input Validation
+### Data Protection
 
-- Query parameter validation before external API calls
-- URL encoding for search terms
-- Type checking for numeric parameters
+- _Local Storage_: Only watchlist data stored locally
+- _No Sensitive Data_: No financial credentials or personal information
+- _HTTPS Communication_: All API calls use secure connections
 
-### Rate Limiting
+---
 
-- Relies on Alpha Vantage API rate limits
-- Implements demo data fallback for development
+## License
 
-## Notes
-
-- Uses demo data fallback when API fails or rate limits are exceeded
-- Implements debounced search to reduce API calls
-- Chart data is filtered and optimized based on selected timeframe
-- Watchlist data persists locally in SQLite database
-- Theme preference is stored and persists between app sessions
+This project is developed as part of the Groww technical assignment for educational and evaluation purposes.
