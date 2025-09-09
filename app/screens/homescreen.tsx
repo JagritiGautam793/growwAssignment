@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThemeToggleCompact } from "../components/ThemeToggleCompact";
 import { useThemeMode } from "../contexts/ThemeContext";
+import { searchService, stockDataService } from "../services";
 import { getColors } from "../theme/colors";
 
 interface StockData {
@@ -89,8 +90,7 @@ const HomeScreen = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("/stockdata");
-        const data = await response.json();
+        const data = await stockDataService.getStockData();
         setGainers(data.gainers || []);
         setLosers(data.losers || []);
       } catch (error) {
@@ -113,10 +113,7 @@ const HomeScreen = () => {
 
       try {
         setSearchLoading(true);
-        const response = await fetch(
-          `/search?keywords=${encodeURIComponent(query)}`
-        );
-        const data = await response.json();
+        const data = await searchService.searchSymbols(query);
 
         if (data.results) {
           setSearchResults(data.results);

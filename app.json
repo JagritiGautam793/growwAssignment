@@ -42,8 +42,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "626ddaaa-712c-4cda-817a-9d79a3a2c4cf"
+        "projectId": "da3a15e4-8c85-4f1d-9fcc-8459da30e086"
       }
-    }
+    },
+    "owner": "jaggautam"
   }
 }

@@ -18,6 +18,7 @@ import {
 import { LineChart } from "react-native-chart-kit";
 import { useThemeMode } from "../contexts/ThemeContext";
 import { useWatchlist } from "../contexts/WatchlistContext";
+import { companyService, timeSeriesService } from "../services";
 import { getColors } from "../theme/colors";
 
 interface CompanyData {
@@ -124,13 +125,7 @@ const DetailScreen = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch(`/company?symbol=${symbol}`);
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch data: ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await companyService.getCompanyData(symbol as string);
       setCompanyData(data);
     } catch (err) {
       console.error("Error fetching company data:", err);
@@ -146,15 +141,10 @@ const DetailScreen = () => {
     try {
       setChartLoading(true);
       setChartError(null);
-      const response = await fetch(
-        `/timeseries?symbol=${symbol}&timeframe=${selectedTimeframe}`
+      const data = await timeSeriesService.getTimeSeries(
+        symbol as string,
+        selectedTimeframe
       );
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch time series data: ${response.status}`);
-      }
-
-      const data: TimeSeriesResponse = await response.json();
 
       setTimeSeriesData(data.data || []);
     } catch (err) {
@@ -1144,14 +1134,14 @@ const styles = StyleSheet.create({
   priceHeader: {
     marginBottom: 12,
     paddingHorizontal: 8,
-    alignItems: "center", // Center align the entire header
+    alignItems: "center",
   },
   priceInfo: {
-    alignItems: "center", // Center align price info
+    alignItems: "center",
     width: "100%",
   },
   currentPrice: {
-    fontSize: 22, // Reduced from 28
+    fontSize: 22,
     fontWeight: "700",
     marginBottom: 6,
     textAlign: "center",
@@ -1159,11 +1149,11 @@ const styles = StyleSheet.create({
   changeContainer: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center", // Center the change info
+    justifyContent: "center",
     gap: 10,
   },
   priceChange: {
-    fontSize: 14, // Reduced from 16
+    fontSize: 14,
     fontWeight: "600",
   },
   timeframeLabel: {
