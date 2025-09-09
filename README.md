@@ -1,4 +1,10 @@
-# Stock Trading App - Groww Assignment
+# Stock Trading App - Groww Assignment 
+
+## 📱 Google Drive Link
+
+**[🔗 Download APK & View Demo - Google Drive](https://drive.google.com/drive/folders/1W84U7bnJXRuQXl-Fa9afANKCVWX2-IQO?usp=sharing)**
+
+_Contains: APK file, screenshots, and demo video_
 
 A React Native application for viewing stock market data using Alpha Vantage API.
 
